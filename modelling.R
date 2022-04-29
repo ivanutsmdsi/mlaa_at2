@@ -3,7 +3,7 @@
 # MLAA Assignment 2 Part A
 #
 # Students:
-# Ivan Cheung
+# Ivan Cheung 13975420
 # Ryan
 # Dinh
 # John 
