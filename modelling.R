@@ -3,40 +3,43 @@
 # MLAA Assignment 2 Part A
 #
 # Students:
-# Ivan Cheung 13975420
-# Ryan
-# Dinh
-# John 
+# Ivan Cheung - 13975420
+# Ryan Yeo -
+# Dinh Tran -
+# John Rho -
 #
 #
 #
 #
 ###
 
-## Load Data
+## Load Data - Ivan
+## Data Cleaning - Ivan
 
 
 
-## Data Cleaning
+### Model Analysis
 
+## Model 1 Dinh
 
-## Model Analysis
+## Model 2 Ivan
 
-## Model 1
+## Model 3 John
 
-## Model 2
+## Model 4 Ryan
 
-## Model 3
+### Model Evaluations
 
-## Model 4
+## Confusion Matrix
+## AUC of each model
+## ROC
 
-## Model Evaluations
+### Model Optimisations
 
+## Final Model - GBM
 
+## Final Model - Random Forest
 
-
-## Model Optimisations
-
-## 
+## Produce validation output
 
 ##
