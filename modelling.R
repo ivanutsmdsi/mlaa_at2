@@ -74,6 +74,14 @@ table(df$EDUCATION)
 
 # total obs removed from raw dataset = 78 (0.33% of raw data removed)
 
+# Reduce PAY_AMT columns to 0 and 1
+df$PAY_AMT1[df$PAY_AMT1 > 0] <- 1
+df$PAY_AMT2[df$PAY_AMT2 > 0] <- 1
+df$PAY_AMT3[df$PAY_AMT3 > 0] <- 1
+df$PAY_AMT4[df$PAY_AMT4 > 0] <- 1
+df$PAY_AMT5[df$PAY_AMT5 > 0] <- 1
+df$PAY_AMT6[df$PAY_AMT6 > 0] <- 1
+
 ## Build additional factors
 
 # Age Band
