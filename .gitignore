@@ -4,11 +4,8 @@
 
 # Session Data files
 .RData
-<<<<<<< Updated upstream
 .Rproj
-=======
 *.RProj
->>>>>>> Stashed changes
 
 # User-specific files
 .Ruserdata
@@ -18,6 +15,7 @@
 
 # Output files from R CMD build
 /*.tar.gz
+predictions.csv
 
 # Output files from R CMD check
 /*.Rcheck/
