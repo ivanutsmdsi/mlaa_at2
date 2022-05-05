@@ -142,20 +142,33 @@ nrow(df)
 ## Model 2 Ivan
 
 ## Model 3 John
-#train logistic regression model 
+##train logistic regression model 
+#transform default values to no=0 and yes= 1
+trainset$default<-as.factor(trainset$default)
+levels(trainset$default)<-c("0","1")
+testset$default<-as.factor(testset$default)
+levels(testset$default)<-c("0","1")
+
 AT2.glm = glm(formula = default~ .,
-              data = train,
+              data = trainset,
               family = "binomial")
 summary(AT2.glm )
 
-test$probability = predict(AT2.glm, newdata = test, type = "response")
-test$prediction = "0"
-test[test$probability >= 0.5, "prediction"] = "1"
+#Try training model with variables with significant p value 
+AT2.glm_sig = glm(formula = default~ LIMIT_BAL+MARRIAGE+AGE+PAY_0 +PAY_2+PAY_AMT3+NO_PAY_DELAY,
+                  data = trainset,
+                  family = "binomial")
+summary(AT2.glm_sig)
 
-table(test$prediction)
+#we get a better AIC score from model wtih all variables. Meaning that AT2.glm is fitting the data better than AT2.glm_sig
 
+testset$probability = predict(AT2.glm, newdata = testset, type = "response")
+testset$prediction = "0"
+testset[testset$probability >= 0.5, "prediction"] = "1"
+
+table(testset$prediction)
 #confusion matrix 
-AT2_cfm <- table(predicted=test$prediction,true=test$default)
+AT2_cfm <- table(predicted=testset$prediction,true=testset$default)
 AT2_cfm
 
 #Accuracy
@@ -174,9 +187,11 @@ recall
 f1 <- 2*(precision*recall/(precision+recall))
 f1
 
-#AUC
-roc_object <- roc( test$default, test$probability)
+#AUC 
+library(pROC)
+roc_object <- roc(testset$default,testset$probability)
 auc(roc_object)
+
 
 ## Model 4 Ryan
 
