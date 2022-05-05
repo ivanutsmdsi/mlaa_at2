@@ -121,14 +121,19 @@ train_y_indices <- sample(seq_len(nrow(df_y)), size = train_y_size)
 
 train_n <- df_n[train_n_indices, ]
 test_n <- df_n[-train_n_indices, ]
-train_y <- df_y[train_n_indices, ]
-test_y <- df_y[-train_n_indices, ]
+train_y <- df_y[train_y_indices, ]
+test_y <- df_y[-train_y_indices, ]
 
 trainset <- rbind(train_n,train_y)
 testset <- rbind(test_n, test_y)
 
 rm(train_n_indices, train_n_size, train_n, df_n, df_y, train_n, test_n, train_y, test_y, train_y_indices, train_y_size)
 
+# Validation of train and test set
+table(trainset$default)
+table(testset$default)
+nrow(trainset) + nrow(testset)
+nrow(df)
 
 ### Model Analysis
 
