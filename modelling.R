@@ -110,13 +110,24 @@ table(df$NO_PAY_DELAY)
 
 ## Build Train and Test Set                                                                     ----
 set.seed(20220504)
-trainset_size <- floor(0.80 * nrow(df))
-trainset_indices <- sample(seq_len(nrow(df)), size = trainset_size)
+
+df_n <- subset(df, df$default == 'N')
+df_y <- subset(df, df$default == 'Y')
+train_n_size <- floor(0.80 * nrow(df_n))
+train_n_indices <- sample(seq_len(nrow(df_n)), size = train_n_size)
+train_y_size <- floor(0.80 * nrow(df_y))
+train_y_indices <- sample(seq_len(nrow(df_y)), size = train_y_size)
 
 
-trainset <- df[trainset_indices, ]
-testset <- df[-trainset_indices, ]
+train_n <- df_n[train_n_indices, ]
+test_n <- df_n[-train_n_indices, ]
+train_y <- df_y[train_n_indices, ]
+test_y <- df_y[-train_n_indices, ]
 
+trainset <- rbind(train_n,train_y)
+testset <- rbind(test_n, test_y)
+
+rm(train_n_indices, train_n_size, train_n, df_n, df_y, train_n, test_n, train_y, test_y, train_y_indices, train_y_size)
 
 
 ### Model Analysis
