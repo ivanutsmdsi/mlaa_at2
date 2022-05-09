@@ -219,18 +219,22 @@ pred_train <- predict(svm_model,newdata = trainset)
 mean(pred_train==trainset$default)
 
 pred_test <- predict(svm_model,testset)
+predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
+
+svm_probabilties <- attr(predict_probability, "probabilities")[,"Y"]
 mean(pred_test==testset$default)
 
 cfm <- confusionMatrix(pred_test, testset$default, "Y")
 
-#Accuracy
 cfm[["overall"]][["Accuracy"]]
-
-#Precision 
 cfm[["byClass"]][["Precision"]]
-
-#Recall
 cfm[["byClass"]][["Recall"]]
+
+##AUC/ROC
+roc_svm <- roc(testset$default,svm_probabilties, plot=TRUE)
+plot(roc_svm, col="red", main="SVM ROC Curve")
+auc(roc_svm)
+
 
 ## Model 3 John
 ##train logistic regression model 
@@ -350,6 +354,9 @@ auc
 ## Confusion Matrix
 ## AUC of each model
 ## ROC
+plot(roc_object, col="blue", main="ROC Curve")
+plot(roc_svm,  col = "red", add = TRUE)
+legend("right", legend = c("glm", "svm"), col = c("blue", "red"), lty=1:1)
 
 ### Model Optimisations
 
