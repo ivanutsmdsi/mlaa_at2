@@ -26,6 +26,7 @@ library(ROCR)
 library(ggplot2)
 
 =======
+library(e1071)
 >>>>>>> Stashed changes
 
 ## Load Data - Ivan
@@ -115,6 +116,9 @@ table(df$EDUCATION)
 
 # total obs removed from raw dataset = 78 (0.33% of raw data removed)
 
+# Convert default to factor
+df$default  <- as.factor(df$default)
+
 # Reduce PAY_AMT columns to 0 and 1
 df$PAY_AMT1[df$PAY_AMT1 > 0] <- 1
 df$PAY_AMT2[df$PAY_AMT2 > 0] <- 1
@@ -175,7 +179,7 @@ test_y <- df_y[-train_y_indices, ]
 trainset <- rbind(train_n,train_y)
 testset <- rbind(test_n, test_y)
 
-rm(train_n_indices, train_n_size, train_n, df_n, df_y, train_n, test_n, train_y, test_y, train_y_indices, train_y_size)
+rm(train_n_indices, train_n_size, train_n, df_n, df_y, test_n, train_y, test_y, train_y_indices, train_y_size)
 
 # Validation of train and test set
 table(trainset$default)
@@ -210,6 +214,26 @@ table(training_dn$default)
 ## Model 1 Dinh
 
 ## Model 2 Ivan
+svm_model<- 
+  svm(default ~ LIMIT_BAL + MARRIAGE + AGE + NO_PAY_DELAY + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6
+      , data=trainset, type="C-classification", kernel="linear", scale = TRUE, probability=TRUE)
+
+pred_train <- predict(svm_model,newdata = trainset)
+mean(pred_train==trainset$default)
+
+pred_test <- predict(svm_model,testset)
+mean(pred_test==testset$default)
+
+cfm <- confusionMatrix(pred_test, testset$default, "Y")
+
+#Accuracy
+cfm[["overall"]][["Accuracy"]]
+
+#Precision 
+cfm[["byClass"]][["Precision"]]
+
+#Recall
+cfm[["byClass"]][["Recall"]]
 
 ## Model 3 John
 ##train logistic regression model 
