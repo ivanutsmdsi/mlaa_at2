@@ -24,6 +24,7 @@ library(AMR)
 library(ROCR)
 library(ggplot2)
 
+library(e1071)
 
 ## Load Data - Ivan
 rm(list = ls())
@@ -114,6 +115,9 @@ table(df$EDUCATION)
 
 # total obs removed from raw dataset = 78 (0.33% of raw data removed)
 
+# Convert default to factor
+df$default  <- as.factor(df$default)
+
 # Reduce PAY_AMT columns to 0 and 1
 df$PAY_AMT1[df$PAY_AMT1 > 0] <- 1
 df$PAY_AMT2[df$PAY_AMT2 > 0] <- 1
@@ -184,9 +188,10 @@ table(df$NO_PAY_DELAY)
 
 #Dinh: REWORTE THE CODE ABOVE TO SPLIT INTO TRAINSET AND TESTSET USING CARET PACKAGE
 set.seed(20220504)
-intrain<-createDataPartition(y=df$default,p=0.8,list=FALSE)
-trainset<-df[intrain,]
-testset<-df[-intrain,]
+intrain  <- createDataPartition(y=df$default,p=0.8,list=FALSE)
+trainset <- df[intrain,]
+testset  <- df[-intrain,]
+
 
 # Validation of train and test set
 nrow(trainset) + nrow(testset)
@@ -340,6 +345,30 @@ gbm_auc
 #----------------------------------------------##---------------------------------------------------#
 
 ## Model 2 Ivan
+svm_model<- 
+  svm(default ~ LIMIT_BAL + MARRIAGE + AGE + NO_PAY_DELAY + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6
+      , data=trainset, type="C-classification", kernel="linear", scale = TRUE, probability=TRUE)
+
+pred_train <- predict(svm_model,newdata = trainset)
+mean(pred_train==trainset$default)
+
+pred_test <- predict(svm_model,testset)
+predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
+
+svm_probabilties <- attr(predict_probability, "probabilities")[,"Y"]
+mean(pred_test==testset$default)
+
+cfm <- confusionMatrix(pred_test, testset$default, "Y")
+
+cfm[["overall"]][["Accuracy"]]
+cfm[["byClass"]][["Precision"]]
+cfm[["byClass"]][["Recall"]]
+
+##AUC/ROC
+roc_svm <- roc(testset$default,svm_probabilties, plot=TRUE)
+plot(roc_svm, col="red", main="SVM ROC Curve")
+auc(roc_svm)
+
 
 ## Model 3 John
 ##train logistic regression model 
@@ -459,6 +488,9 @@ auc
 ## Confusion Matrix
 ## AUC of each model
 ## ROC
+plot(roc_object, col="blue", main="ROC Curve")
+plot(roc_svm,  col = "red", add = TRUE)
+legend("right", legend = c("glm", "svm"), col = c("blue", "red"), lty=1:1)
 
 ### Model Optimisations
 
