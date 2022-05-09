@@ -17,7 +17,6 @@
 #install.packages("AMR")
 library(dplyr)
 library(caret)
-<<<<<<< Updated upstream
 library(gbm)
 library(parallel)
 library(magrittr)
@@ -25,9 +24,7 @@ library(AMR)
 library(ROCR)
 library(ggplot2)
 
-=======
 library(e1071)
->>>>>>> Stashed changes
 
 ## Load Data - Ivan
 rm(list = ls())
