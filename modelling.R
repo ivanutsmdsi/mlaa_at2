@@ -32,7 +32,7 @@ df <- read.csv('AT2_credit_train.csv')
 df_raw <- df
 
 
-## EDA
+## EDA ----
 ######### Ryan
 str(df)
 df$LIMIT_BAL <-  as.integer(df$LIMIT_BAL)
@@ -53,7 +53,6 @@ df$default <- as.factor(df$default) # set as factor
 levels(df$default) # check factor, 1 = yes
 tb_default <- table(df$default) # check target distribution
 tb_default # 0:1 = 16974:6127
-
 
 # checking the ratio
 tbl_prop <- prop.table(tb_default)
@@ -156,35 +155,6 @@ table(df$NO_PAY_DELAY)
 ## Build Train and Test Set                                                                     ----
 
 # Split data into testing and training with 75% for training on stratified method
-#trainIndex = createDataPartition(y = df$default, p = 0.75, list = F)
-#training_df = df[trainIndex, ]
-#testing_df = df[-trainIndex, ]
-# easier this way?
-
-# df_n <- subset(df, df$default == 'N')
-# df_y <- subset(df, df$default == 'Y')
-# train_n_size <- floor(0.80 * nrow(df_n))
-# train_n_indices <- sample(seq_len(nrow(df_n)), size = train_n_size)
-# train_y_size <- floor(0.80 * nrow(df_y))
-# train_y_indices <- sample(seq_len(nrow(df_y)), size = train_y_size)
-# 
-# 
-# train_n <- df_n[train_n_indices, ]
-# test_n <- df_n[-train_n_indices, ]
-# train_y <- df_y[train_y_indices, ]
-# test_y <- df_y[-train_y_indices, ]
-# 
-# trainset <- rbind(train_n,train_y)
-# testset <- rbind(test_n, test_y)
-# 
-# rm(train_n_indices, train_n_size, train_n, df_n, df_y, train_n, test_n, train_y, test_y, train_y_indices, train_y_size)
-# 
-# # Validation of train and test set
-# table(trainset$default)
-# table(testset$default)
-# nrow(trainset) + nrow(testset)
-# nrow(df)
-
 
 #Dinh: REWORTE THE CODE ABOVE TO SPLIT INTO TRAINSET AND TESTSET USING CARET PACKAGE
 set.seed(20220504)
@@ -298,7 +268,8 @@ p1_gbm <-predict(gbm, testDinh)
 cfm_gbm <- confusionMatrix(data=p1_gbm, reference=as.factor(testDinh$default), positive="yes")
 cfm_gbm
 imp = varImp(gbm)
-# As a table
+
+#As a table
 imp
 # As a plot
 plot(imp, main="Important variables in the gbm model")
@@ -383,6 +354,7 @@ AT2.glm = glm(formula = default~ .,
               family = "binomial")
 summary(AT2.glm )
 
+
 #Try training model with variables with significant p value 
 AT2.glm_sig = glm(formula = default~ LIMIT_BAL+MARRIAGE+AGE+PAY_0 +PAY_2+PAY_AMT3+NO_PAY_DELAY,
                   data = trainset,
@@ -425,6 +397,10 @@ auc(roc_object)
 ## Model 4 Ryan
 ############ Train GBM model
 
+### normalise for trial
+
+###
+
 fitControl <- trainControl(## 10-fold CV
   method = "cv",
   number = 10,
@@ -432,10 +408,16 @@ fitControl <- trainControl(## 10-fold CV
   savePredictions = T
 )
 
-gbmGrid <-  expand.grid(interaction.depth = 5, 
+gbmGrid_v1 <-  expand.grid(interaction.depth = 5, 
                         n.trees = 100, 
                         shrinkage = 0.1,
                         n.minobsinnode = 20)
+
+gbmGrid_v2 <-  expand.grid(interaction.depth = 4, 
+                        n.trees = 100, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
 
 
 gbmFit1 <- train(default ~ ., data = training_df, 
@@ -443,7 +425,7 @@ gbmFit1 <- train(default ~ ., data = training_df,
                  trControl = fitControl, 
                  verbose = FALSE,
                  metric = "ROC",
-                 tuneGrid = gbmGrid)
+                 tuneGrid = gbmGrid_v2)
 gbmFit1
 
 # downsample
@@ -452,7 +434,7 @@ gbmFit2 <- train(default ~ ., data = training_dn,
                  trControl = fitControl, 
                  verbose = FALSE, 
                  metric = "ROC",
-                 tuneGrid = gbmGrid)
+                 tuneGrid = gbmGrid_v2)
 gbmFit2
 
 #upsample
@@ -461,7 +443,7 @@ gbmFit3 <- train(default ~ ., data = training_up,
                  trControl = fitControl, 
                  verbose = FALSE,
                  metric = "ROC",
-                 tuneGrid = gbmGrid)
+                 tuneGrid = gbmGrid_v2)
 gbmFit3
 
 
@@ -487,6 +469,10 @@ auc
 
 ## Confusion Matrix
 ## AUC of each model
+# add a table
+# add ROCs for all 4 models
+
+
 ## ROC
 plot(roc_object, col="blue", main="ROC Curve")
 plot(roc_svm,  col = "red", add = TRUE)
@@ -494,9 +480,13 @@ legend("right", legend = c("glm", "svm"), col = c("blue", "red"), lty=1:1)
 
 ### Model Optimisations
 
+## AUC of each version of GBM models
+# add a table
+# add ROCs for key GBM models showing improvements after tuning
+
 ## Final Model - GBM
 
-## Final Model - Random Forest
+
 
 ## Produce validation output
 
