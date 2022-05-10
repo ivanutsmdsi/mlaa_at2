@@ -179,15 +179,15 @@ set.seed(7)
 levels(training_df$default) <- c("no", "yes") # prep for caret
 levels(testing_df$default) <- c("no", "yes") # prep for caret
 ## upsampling
-training_up <- upSample(x=training_df[,-ncol(training_df)],
-                        y= training_df$default)
+training_up <- upSample(x=trainset[,-ncol(trainset)],# changed to trainset from traing_df
+                        y= trainset$default)#changed to trainset from traing_df
 str(training_up)
 colnames(training_up)[24] <- "default"
 table(training_up$default)
 
 ## downsampling
-training_dn <- downSample(x=training_df[,-ncol(training_df)],
-                          y= training_df$default)
+training_dn <- downSample(x=trainset[,-ncol(trainset)], #changed to trainset from traing_df
+                          y= trainset$default) #changed to trainset from traing_df
 str(training_dn)
 colnames(training_dn)[24] <- "default"
 table(training_dn$default)
