@@ -368,25 +368,11 @@ testset$prediction = "0"
 testset[testset$probability >= 0.5, "prediction"] = "1"
 
 table(testset$prediction)
+
+testset$prediction<-as.factor(testset$prediction)
 #confusion matrix 
-AT2_cfm <- table(predicted=testset$prediction,true=testset$default)
-AT2_cfm
-
-#Accuracy
-accuracy <- (AT2_cfm[1,1]+AT2_cfm[2,2])/sum(AT2_cfm)
-accuracy
-
-#Precision 
-precision <- AT2_cfm[1,1]/(AT2_cfm[1,1]+AT2_cfm[1,2])
-precision
-
-#Recall
-recall <- AT2_cfm[1,1]/(AT2_cfm[1,1]+AT2_cfm[2,1])
-recall
-
-#F1 
-f1 <- 2*(precision*recall/(precision+recall))
-f1
+cfm <- confusionMatrix(testset$prediction, testset$default, "1")
+cfm
 
 #AUC 
 library(pROC)
