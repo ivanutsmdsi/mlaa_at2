@@ -400,8 +400,6 @@ levels(trainset_JR$default) <- c("no", "yes")
 levels(testset_JR$default) <- c("no", "yes")
 
 #random search Tune length=5
-start <- proc.time()
-
 gbm_fit_rand_JR = train(x = trainset_JR[, -length(trainset_JR)], 
                      y = trainset_JR$default, 
                      method = "gbm", 
@@ -412,9 +410,6 @@ gbm_fit_rand_JR = train(x = trainset_JR[, -length(trainset_JR)],
                     
 )
 
-end <- proc.time() - start
-end_time <- as.numeric((paste(end[3])))
-end_time
 
 print(gbm_fit_rand_JR)
  
@@ -454,6 +449,38 @@ table(testset_JR$predictions)
 #CFM
 confusionMatrix(data = testset_JR$predictions, reference = testset_JR$default,
                 mode = "everything", positive="yes")
+
+### upsample###
+trainup_JR<-upSample(x=trainset[,-ncol(trainset)],
+                    y= trainset$default)
+str(trainup_JR)
+colnames(trainup_JR)[24] <- "default"
+table(trainup_JR$default)
+
+testup_JR<-upSample(x=testset[,-ncol(testset)],
+                    y= testset$default)
+str(testup_JR)
+colnames(testup_JR)[24] <- "default"
+table(testup_JR$default)
+
+trainup_JR$SEX<-as.factor(trainup_JR$SEX)
+
+levels(trainup_JR$default) <- c("no", "yes")
+levels(testup_JR$default) <- c("no", "yes")
+
+
+#Tune length= 10
+gbm_fit_uprand_JR10 = train(x = trainup_JR[, -length(trainup_JR)], 
+                          y = trainup_JR$default, 
+                          method = "gbm", 
+                          trControl = control_JR,
+                          tuneLength = 10,
+                          verbose = T,
+                          metric = "ROC")
+
+print(gbm_fit_uprand_JR10)
+
+#same parameters as out put from previous random search on unbalanced data set
 
 ## Model 4 Ryan
 ############ Train GBM model
