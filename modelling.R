@@ -864,6 +864,7 @@ auc
 
 # Modelling Summary ####
 
+# Ivan
 ## Confusion Matrix
 ## AUC of each model
 # add a table
@@ -941,7 +942,7 @@ gbmFitgrand <- train(default ~ ., data = trainset_JR,
                      metric = "ROC",
                      tuneGrid = gbm_fit_rand_grid)
 
-gbmFitgrand #ROC 0.75
+gbmFitgrand #}}}}ROC 0.75
 
 testset_JR$predictions=predict(gbmFitgrand, newdata=testset_JR)
 
@@ -1059,6 +1060,7 @@ gbm_auc
 #_________________________________________________________________________#
 
 # Optimisation Summary ####
+# Ryan to do
 
 ## AUC of each version of GBM models
 # add a table
@@ -1070,6 +1072,7 @@ gbm_auc
 
 # Final GBM Model ####
 
+# Dihn
 
 
 #_________________________________________________________________________#
@@ -1077,6 +1080,7 @@ gbm_auc
 #_________________________________________________________________________#
 
 # Output ####
+# Ryan to do
 ## Produce validation output
 
 ##
