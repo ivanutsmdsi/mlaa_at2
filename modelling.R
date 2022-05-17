@@ -290,10 +290,10 @@ mean(pred_train==trainset$default)
 pred_test <- predict(svm_model,testset)
 predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
 
-svm_probabilties <- attr(predict_probability, "probabilities")[,"Y"]
+svm_probabilties <- attr(predict_probability, "probabilities")[,"1"]
 mean(pred_test==testset$default)
 
-cfm <- confusionMatrix(pred_test, testset$default, "Y")
+cfm <- confusionMatrix(pred_test, testset$default, "1")
 
 cfm[["overall"]][["Accuracy"]]
 cfm[["byClass"]][["Precision"]]
