@@ -401,6 +401,108 @@ library(pROC)
 roc_object <- roc(testset$default,testset$probability)
 auc(roc_object)
 
+##John GBM Testing## 
+control_JR <- trainControl(method = "cv",
+                               number = 5,
+                               search="grid",
+                               summaryFunction = twoClassSummary,
+                               classProbs = TRUE,
+                               allowParallel = TRUE
+)
+
+trainset_JR<-trainset
+testset_JR<-testset
+
+str(trainset_JR)
+str(testset_JR)
+
+trainset_JR$SEX<-as.factor(trainset_JR$SEX)
+
+levels(trainset_JR$default) <- c("no", "yes")
+levels(testset_JR$default) <- c("no", "yes")
+
+#random search Tune length=5
+gbm_fit_rand_JR = train(x = trainset_JR[, -length(trainset_JR)], 
+                     y = trainset_JR$default, 
+                     method = "gbm", 
+                     trControl = control_JR,
+                     tuneLength = 5, #Here we set how many to sample
+                     verbose = T,
+                     metric = "ROC"
+                    
+)
+
+
+print(gbm_fit_rand_JR)
+ 
+#Tune length= 10
+gbm_fit_rand_JR10 = train(x = trainset_JR[, -length(trainset_JR)], 
+                        y = trainset_JR$default, 
+                        method = "gbm", 
+                        trControl = control_JR,
+                        tuneLength = 10,
+                        verbose = T,
+                        metric = "ROC")
+print(gbm_fit_rand_JR)
+print(gbm_fit_rand_JR10)
+
+#both random serarch gives model with best ROC = n tree=50, depth=1, shrinkage=0.1, nminobsinnode=10
+
+#get  ROC for gbm_fit_rand_JR10 
+gbm_fit_rand_grid <-  expand.grid(interaction.depth = 1, 
+                           n.trees = 50, 
+                           shrinkage = 0.1,
+                           n.minobsinnode = 10)
+
+gbmFitgrand <- train(default ~ ., data = trainset_JR, 
+                 method = "gbm", 
+                 trControl = control_JR, 
+                 verbose = FALSE,
+                 metric = "ROC",
+                 tuneGrid = gbm_fit_rand_grid)
+
+gbmFitgrand #ROC 0.75
+
+testset_JR$predictions=predict(gbmFitgrand, newdata=testset_JR)
+
+#prediction on table
+table(testset_JR$predictions)
+
+#CFM
+confusionMatrix(data = testset_JR$predictions, reference = testset_JR$default,
+                mode = "everything", positive="yes")
+
+### upsample###
+trainup_JR<-upSample(x=trainset[,-ncol(trainset)],
+                    y= trainset$default)
+str(trainup_JR)
+colnames(trainup_JR)[24] <- "default"
+table(trainup_JR$default)
+
+testup_JR<-upSample(x=testset[,-ncol(testset)],
+                    y= testset$default)
+str(testup_JR)
+colnames(testup_JR)[24] <- "default"
+table(testup_JR$default)
+
+trainup_JR$SEX<-as.factor(trainup_JR$SEX)
+
+levels(trainup_JR$default) <- c("no", "yes")
+levels(testup_JR$default) <- c("no", "yes")
+
+
+#Tune length= 10
+gbm_fit_uprand_JR10 = train(x = trainup_JR[, -length(trainup_JR)], 
+                          y = trainup_JR$default, 
+                          method = "gbm", 
+                          trControl = control_JR,
+                          tuneLength = 10,
+                          verbose = T,
+                          metric = "ROC")
+
+print(gbm_fit_uprand_JR10)
+
+#same parameters as out put from previous random search on unbalanced data set
 
 ## Model 4 Ryan
 ############ Train GBM model
