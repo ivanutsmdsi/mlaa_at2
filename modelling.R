@@ -894,13 +894,9 @@ control_JR <- trainControl(method = "cv",
 trainset_JR<-trainset
 testset_JR<-testset
 
-str(trainset_JR)
-str(testset_JR)
-
 trainset_JR$SEX<-as.factor(trainset_JR$SEX)
 
-levels(trainset_JR$default) <- c("no", "yes")
-levels(testset_JR$default) <- c("no", "yes")
+table(trainset_JR$default)
 
 #random search Tune length=5
 gbm_fit_rand_JR = train(x = trainset_JR[, -length(trainset_JR)], 
@@ -924,7 +920,7 @@ gbm_fit_rand_JR10 = train(x = trainset_JR[, -length(trainset_JR)],
                           tuneLength = 10,
                           verbose = T,
                           metric = "ROC")
-print(gbm_fit_rand_JR)
+
 print(gbm_fit_rand_JR10)
 
 #both random serarch gives model with best ROC = n tree=50, depth=1, shrinkage=0.1, nminobsinnode=10
@@ -942,7 +938,7 @@ gbmFitgrand <- train(default ~ ., data = trainset_JR,
                      metric = "ROC",
                      tuneGrid = gbm_fit_rand_grid)
 
-gbmFitgrand #}}}}ROC 0.75
+gbmFitgrand #}}}}ROC 0.7553836
 
 testset_JR$predictions=predict(gbmFitgrand, newdata=testset_JR)
 
@@ -953,38 +949,13 @@ table(testset_JR$predictions)
 confusionMatrix(data = testset_JR$predictions, reference = testset_JR$default,
                 mode = "everything", positive="yes")
 
-### upsample###
-trainup_JR<-upSample(x=trainset[,-ncol(trainset)],
-                     y= trainset$default)
-str(trainup_JR)
-colnames(trainup_JR)[24] <- "default"
-table(trainup_JR$default)
+#AUC
+testset_JR$probability <- predict(gbmFitgrand, newdata = testset_JR, type = "prob")
 
-testup_JR<-upSample(x=testset[,-ncol(testset)],
-                    y= testset$default)
-str(testup_JR)
-colnames(testup_JR)[24] <- "default"
-table(testup_JR$default)
+pred_JR = prediction(testset_JR$probability[,2], testset_JR$default)
 
-trainup_JR$SEX<-as.factor(trainup_JR$SEX)
-
-levels(trainup_JR$default) <- c("no", "yes")
-levels(testup_JR$default) <- c("no", "yes")
-
-
-#Tune length= 10
-gbm_fit_uprand_JR10 = train(x = trainup_JR[, -length(trainup_JR)], 
-                            y = trainup_JR$default, 
-                            method = "gbm", 
-                            trControl = control_JR,
-                            tuneLength = 10,
-                            verbose = T,
-                            metric = "ROC")
-
-print(gbm_fit_uprand_JR10)
-
-#same parameters as out put from previous random search on unbalanced data set
-
+auc = performance(pred_JR, "auc")@y.values[[1]]
+auc#}}}}} AUC 0.7502347
 
 #### Dinh tried gbm 
 ### GBM Model 
