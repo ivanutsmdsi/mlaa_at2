@@ -9,6 +9,9 @@
 # John Rho - 24509337
 #
 ###
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
 
 # Libraries ####
 #install.packages("AMR")
@@ -29,8 +32,10 @@ rm(list = ls())
 df <- read.csv('AT2_credit_train.csv')
 df_raw <- df
 
-##
-#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
 # EDA ####
 
 str(df) # check shape
@@ -100,8 +105,10 @@ p<-ggplot(data=df, aes(x=EDUCATION)) +
   geom_histogram()
 p
 
-##
-#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
 # Data Cleaning ####
 
 # LIMIT_BAL
@@ -174,10 +181,13 @@ df$NO_PAY_DELAY <- case_when(df$PAY_0 > 0 |
 table(df$NO_PAY_DELAY)
 # I believe we lose a lot of information here. This is like all or nothing approach. e.g. may miss one but make the rest on time. 
 
-## Build Train and Test Set                                                                     ----
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
 
-# Split data into testing and training with 75% for training on stratified method
+# Partitioning ####
 
+# Split data into testing and training with 80% for training on stratified method
 #Dinh: REWORTE THE CODE ABOVE TO SPLIT INTO TRAINSET AND TESTSET USING CARET PACKAGE
 set.seed(20220504)
 intrain  <- createDataPartition(y=df$default,p=0.8,list=FALSE)
@@ -193,8 +203,6 @@ tab_temp1<-table(trainset[,"default"])
 print(prop.table(tab_temp1))
 tab_temp2<-table(testset[,"default"])
 print(prop.table(tab_temp2))
-
-
 
 # subsampling the training_df
 set.seed(7)
@@ -214,12 +222,15 @@ str(training_dn)
 colnames(training_dn)[24] <- "default"
 table(training_dn$default)
 
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
 
+# Modelling ####
 
-#-------------------------------------------####---------------------------#
-### Model Analysis
+## Random Forest ####
 
-## Model 1 Dinh  Random  Forest & gbm  
+## Model 1 Dinh  Random  Forest & gbm
 ## AUTO TUNE MODEL  ##
 set.seed(42)
 fitControl <- trainControl(method = 'cv', number = 10, 
@@ -239,8 +250,6 @@ levels(testDinh$default) <- c("no", "yes")
 ## Change variables PAY_ATMX into factors
 trainDinh[, c(18:23)] <- lapply(trainDinh[, c(18:23)], factor)
 testDinh[, c(18:23)] <- lapply(testDinh[, c(18:23)], factor)
-
-
 
 #model
 forest1 <- train(default~., data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
@@ -266,8 +275,276 @@ results <- resamples(modellist)
 summary(results)
 dotplot(results)
 
-#### Dinh tried gbm ######################
-### GBM Model #####
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+## SVM ####
+## Model 2 Ivan
+svm_model<- 
+  svm(default ~ LIMIT_BAL + MARRIAGE + AGE + NO_PAY_DELAY + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6
+      , data=trainset, type="C-classification", kernel="linear", scale = TRUE, probability=TRUE)
+
+pred_train <- predict(svm_model,newdata = trainset)
+mean(pred_train==trainset$default)
+
+pred_test <- predict(svm_model,testset)
+predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
+
+svm_probabilties <- attr(predict_probability, "probabilities")[,"Y"]
+mean(pred_test==testset$default)
+
+cfm <- confusionMatrix(pred_test, testset$default, "Y")
+
+cfm[["overall"]][["Accuracy"]]
+cfm[["byClass"]][["Precision"]]
+cfm[["byClass"]][["Recall"]]
+
+##AUC/ROC
+roc_svm <- roc(testset$default,svm_probabilties, plot=TRUE)
+plot(roc_svm, col="red", main="SVM ROC Curve")
+auc(roc_svm)
+
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+## GLM ####
+## Model 3 John
+##train logistic regression model 
+#transform default values to no=0 and yes= 1
+trainset$default<-as.factor(trainset$default)
+levels(trainset$default)<-c("0","1")
+testset$default<-as.factor(testset$default)
+levels(testset$default)<-c("0","1")
+
+AT2.glm = glm(formula = default~ .,
+              data = trainset,
+              family = "binomial")
+summary(AT2.glm )
+
+
+#Try training model with variables with significant p value 
+AT2.glm_sig = glm(formula = default~ LIMIT_BAL+MARRIAGE+AGE+PAY_0 +PAY_2+PAY_AMT3+NO_PAY_DELAY,
+                  data = trainset,
+                  family = "binomial")
+summary(AT2.glm_sig)
+
+#we get a better AIC score from model wtih all variables. Meaning that AT2.glm is fitting the data better than AT2.glm_sig
+
+testset$probability = predict(AT2.glm, newdata = testset, type = "response")
+testset$prediction = "0"
+testset[testset$probability >= 0.5, "prediction"] = "1"
+
+table(testset$prediction)
+
+testset$prediction<-as.factor(testset$prediction)
+#confusion matrix 
+cfm <- confusionMatrix(testset$prediction, testset$default, "1")
+cfm
+
+#AUC 
+library(pROC)
+roc_object <- roc(testset$default,testset$probability)
+auc(roc_object)
+
+
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+## GBM ####
+## Model 4 Ryan
+############ Train GBM model
+
+fitControl <- trainControl(## 10-fold CV
+  method = "cv",
+  number = 10,
+  summaryFunction=twoClassSummary, classProbs=T,
+  savePredictions = T
+)
+
+gbmGrid_v1 <-  expand.grid(interaction.depth = 5, 
+                        n.trees = 100, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
+gbmGrid_v2 <-  expand.grid(interaction.depth = 4, 
+                        n.trees = 100, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
+
+
+gbmFit1 <- train(default ~ ., data = training_df, 
+                 method = "gbm", 
+                 trControl = fitControl, 
+                 verbose = FALSE,
+                 metric = "ROC",
+                 tuneGrid = gbmGrid_v2)
+gbmFit1
+
+# fit using downsample
+gbmFit2 <- train(default ~ ., data = training_dn, 
+                 method = "gbm", 
+                 trControl = fitControl, 
+                 verbose = FALSE, 
+                 metric = "ROC",
+                 tuneGrid = gbmGrid_v2)
+gbmFit2
+
+# fit using upsample
+gbmFit3 <- train(default ~ ., data = training_up, 
+                 method = "gbm", 
+                 trControl = fitControl, 
+                 verbose = FALSE,
+                 metric = "ROC",
+                 tuneGrid = gbmGrid_v2)
+gbmFit3
+
+
+varImp(gbmFit3)
+
+#Let's get our predictions, confusion matrix and auc
+testing_df$predictions = predict(gbmFit3, newdata = testing_df)
+#Let us check the confusion matrix
+confusionMatrix(data = testing_df$predictions, reference = testing_df$default,
+                mode = "everything", positive="yes")
+
+testing_df$probability <- predict(gbmFit3, newdata = testing_df, type = "prob")
+
+pred = prediction(testing_df$probability[,2], testing_df$default)
+
+#Let us look at the AUC
+auc = performance(pred, "auc")@y.values[[1]]
+auc
+
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+# Modelling Summary ####
+
+## Confusion Matrix
+## AUC of each model
+# add a table
+# add ROCs for all 4 models
+
+
+## ROC
+plot(roc_object, col="blue", main="ROC Curve")
+plot(roc_svm,  col = "red", add = TRUE)
+legend("right", legend = c("glm", "svm"), col = c("blue", "red"), lty=1:1)
+
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+# Model Optimisations ####
+
+##John GBM Testing## 
+control_JR <- trainControl(method = "cv",
+                           number = 5,
+                           search="grid",
+                           summaryFunction = twoClassSummary,
+                           classProbs = TRUE,
+                           allowParallel = TRUE
+)
+
+trainset_JR<-trainset
+testset_JR<-testset
+
+str(trainset_JR)
+str(testset_JR)
+
+trainset_JR$SEX<-as.factor(trainset_JR$SEX)
+
+levels(trainset_JR$default) <- c("no", "yes")
+levels(testset_JR$default) <- c("no", "yes")
+
+#random search Tune length=5
+gbm_fit_rand_JR = train(x = trainset_JR[, -length(trainset_JR)], 
+                        y = trainset_JR$default, 
+                        method = "gbm", 
+                        trControl = control_JR,
+                        tuneLength = 5, #Here we set how many to sample
+                        verbose = T,
+                        metric = "ROC"
+                        
+)
+
+
+print(gbm_fit_rand_JR)
+
+#Tune length= 10
+gbm_fit_rand_JR10 = train(x = trainset_JR[, -length(trainset_JR)], 
+                          y = trainset_JR$default, 
+                          method = "gbm", 
+                          trControl = control_JR,
+                          tuneLength = 10,
+                          verbose = T,
+                          metric = "ROC")
+print(gbm_fit_rand_JR)
+print(gbm_fit_rand_JR10)
+
+#both random serarch gives model with best ROC = n tree=50, depth=1, shrinkage=0.1, nminobsinnode=10
+
+#get  ROC for gbm_fit_rand_JR10 
+gbm_fit_rand_grid <-  expand.grid(interaction.depth = 1, 
+                                  n.trees = 50, 
+                                  shrinkage = 0.1,
+                                  n.minobsinnode = 10)
+
+gbmFitgrand <- train(default ~ ., data = trainset_JR, 
+                     method = "gbm", 
+                     trControl = control_JR, 
+                     verbose = FALSE,
+                     metric = "ROC",
+                     tuneGrid = gbm_fit_rand_grid)
+
+gbmFitgrand #ROC 0.75
+
+testset_JR$predictions=predict(gbmFitgrand, newdata=testset_JR)
+
+#prediction on table
+table(testset_JR$predictions)
+
+#CFM
+confusionMatrix(data = testset_JR$predictions, reference = testset_JR$default,
+                mode = "everything", positive="yes")
+
+### upsample###
+trainup_JR<-upSample(x=trainset[,-ncol(trainset)],
+                     y= trainset$default)
+str(trainup_JR)
+colnames(trainup_JR)[24] <- "default"
+table(trainup_JR$default)
+
+testup_JR<-upSample(x=testset[,-ncol(testset)],
+                    y= testset$default)
+str(testup_JR)
+colnames(testup_JR)[24] <- "default"
+table(testup_JR$default)
+
+trainup_JR$SEX<-as.factor(trainup_JR$SEX)
+
+levels(trainup_JR$default) <- c("no", "yes")
+levels(testup_JR$default) <- c("no", "yes")
+
+
+#Tune length= 10
+gbm_fit_uprand_JR10 = train(x = trainup_JR[, -length(trainup_JR)], 
+                            y = trainup_JR$default, 
+                            method = "gbm", 
+                            trControl = control_JR,
+                            tuneLength = 10,
+                            verbose = T,
+                            metric = "ROC")
+
+print(gbm_fit_uprand_JR10)
+
+#same parameters as out put from previous random search on unbalanced data set
+
+
+#### Dinh tried gbm 
+### GBM Model 
 set.seed(42)
 control<- trainControl(method = "cv",
                        number = 10, #Making a simple cv for speed here
@@ -335,269 +612,29 @@ gbm_auc <-performance(prediction(gbm_prob, testDinh$default),"auc")
 gbm_auc<-unlist(slot(gbm_auc, "y.values"))
 gbm_auc
 
-#----------------------------------------------##---------------------------------------------------#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
 
-## Model 2 Ivan
-svm_model<- 
-  svm(default ~ LIMIT_BAL + MARRIAGE + AGE + NO_PAY_DELAY + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6
-      , data=trainset, type="C-classification", kernel="linear", scale = TRUE, probability=TRUE)
-
-pred_train <- predict(svm_model,newdata = trainset)
-mean(pred_train==trainset$default)
-
-pred_test <- predict(svm_model,testset)
-predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
-
-svm_probabilties <- attr(predict_probability, "probabilities")[,"Y"]
-mean(pred_test==testset$default)
-
-cfm <- confusionMatrix(pred_test, testset$default, "Y")
-
-cfm[["overall"]][["Accuracy"]]
-cfm[["byClass"]][["Precision"]]
-cfm[["byClass"]][["Recall"]]
-
-##AUC/ROC
-roc_svm <- roc(testset$default,svm_probabilties, plot=TRUE)
-plot(roc_svm, col="red", main="SVM ROC Curve")
-auc(roc_svm)
-
-
-## Model 3 John
-##train logistic regression model 
-#transform default values to no=0 and yes= 1
-trainset$default<-as.factor(trainset$default)
-levels(trainset$default)<-c("0","1")
-testset$default<-as.factor(testset$default)
-levels(testset$default)<-c("0","1")
-
-AT2.glm = glm(formula = default~ .,
-              data = trainset,
-              family = "binomial")
-summary(AT2.glm )
-
-
-#Try training model with variables with significant p value 
-AT2.glm_sig = glm(formula = default~ LIMIT_BAL+MARRIAGE+AGE+PAY_0 +PAY_2+PAY_AMT3+NO_PAY_DELAY,
-                  data = trainset,
-                  family = "binomial")
-summary(AT2.glm_sig)
-
-#we get a better AIC score from model wtih all variables. Meaning that AT2.glm is fitting the data better than AT2.glm_sig
-
-testset$probability = predict(AT2.glm, newdata = testset, type = "response")
-testset$prediction = "0"
-testset[testset$probability >= 0.5, "prediction"] = "1"
-
-table(testset$prediction)
-
-testset$prediction<-as.factor(testset$prediction)
-#confusion matrix 
-cfm <- confusionMatrix(testset$prediction, testset$default, "1")
-cfm
-
-#AUC 
-library(pROC)
-roc_object <- roc(testset$default,testset$probability)
-auc(roc_object)
-
-##John GBM Testing## 
-control_JR <- trainControl(method = "cv",
-                               number = 5,
-                               search="grid",
-                               summaryFunction = twoClassSummary,
-                               classProbs = TRUE,
-                               allowParallel = TRUE
-)
-
-trainset_JR<-trainset
-testset_JR<-testset
-
-str(trainset_JR)
-str(testset_JR)
-
-trainset_JR$SEX<-as.factor(trainset_JR$SEX)
-
-levels(trainset_JR$default) <- c("no", "yes")
-levels(testset_JR$default) <- c("no", "yes")
-
-#random search Tune length=5
-gbm_fit_rand_JR = train(x = trainset_JR[, -length(trainset_JR)], 
-                     y = trainset_JR$default, 
-                     method = "gbm", 
-                     trControl = control_JR,
-                     tuneLength = 5, #Here we set how many to sample
-                     verbose = T,
-                     metric = "ROC"
-                    
-)
-
-
-print(gbm_fit_rand_JR)
- 
-#Tune length= 10
-gbm_fit_rand_JR10 = train(x = trainset_JR[, -length(trainset_JR)], 
-                        y = trainset_JR$default, 
-                        method = "gbm", 
-                        trControl = control_JR,
-                        tuneLength = 10,
-                        verbose = T,
-                        metric = "ROC")
-print(gbm_fit_rand_JR)
-print(gbm_fit_rand_JR10)
-
-#both random serarch gives model with best ROC = n tree=50, depth=1, shrinkage=0.1, nminobsinnode=10
-
-#get  ROC for gbm_fit_rand_JR10 
-gbm_fit_rand_grid <-  expand.grid(interaction.depth = 1, 
-                           n.trees = 50, 
-                           shrinkage = 0.1,
-                           n.minobsinnode = 10)
-
-gbmFitgrand <- train(default ~ ., data = trainset_JR, 
-                 method = "gbm", 
-                 trControl = control_JR, 
-                 verbose = FALSE,
-                 metric = "ROC",
-                 tuneGrid = gbm_fit_rand_grid)
-
-gbmFitgrand #ROC 0.75
-
-testset_JR$predictions=predict(gbmFitgrand, newdata=testset_JR)
-
-#prediction on table
-table(testset_JR$predictions)
-
-#CFM
-confusionMatrix(data = testset_JR$predictions, reference = testset_JR$default,
-                mode = "everything", positive="yes")
-
-### upsample###
-trainup_JR<-upSample(x=trainset[,-ncol(trainset)],
-                    y= trainset$default)
-str(trainup_JR)
-colnames(trainup_JR)[24] <- "default"
-table(trainup_JR$default)
-
-testup_JR<-upSample(x=testset[,-ncol(testset)],
-                    y= testset$default)
-str(testup_JR)
-colnames(testup_JR)[24] <- "default"
-table(testup_JR$default)
-
-trainup_JR$SEX<-as.factor(trainup_JR$SEX)
-
-levels(trainup_JR$default) <- c("no", "yes")
-levels(testup_JR$default) <- c("no", "yes")
-
-
-#Tune length= 10
-gbm_fit_uprand_JR10 = train(x = trainup_JR[, -length(trainup_JR)], 
-                          y = trainup_JR$default, 
-                          method = "gbm", 
-                          trControl = control_JR,
-                          tuneLength = 10,
-                          verbose = T,
-                          metric = "ROC")
-
-print(gbm_fit_uprand_JR10)
-
-#same parameters as out put from previous random search on unbalanced data set
-
-## Model 4 Ryan
-############ Train GBM model
-
-### normalise for trial
-
-###
-
-fitControl <- trainControl(## 10-fold CV
-  method = "cv",
-  number = 10,
-  summaryFunction=twoClassSummary, classProbs=T,
-  savePredictions = T
-)
-
-gbmGrid_v1 <-  expand.grid(interaction.depth = 5, 
-                        n.trees = 100, 
-                        shrinkage = 0.1,
-                        n.minobsinnode = 20)
-
-gbmGrid_v2 <-  expand.grid(interaction.depth = 4, 
-                        n.trees = 100, 
-                        shrinkage = 0.1,
-                        n.minobsinnode = 20)
-
-
-
-gbmFit1 <- train(default ~ ., data = training_df, 
-                 method = "gbm", 
-                 trControl = fitControl, 
-                 verbose = FALSE,
-                 metric = "ROC",
-                 tuneGrid = gbmGrid_v2)
-gbmFit1
-
-# downsample
-gbmFit2 <- train(default ~ ., data = training_dn, 
-                 method = "gbm", 
-                 trControl = fitControl, 
-                 verbose = FALSE, 
-                 metric = "ROC",
-                 tuneGrid = gbmGrid_v2)
-gbmFit2
-
-#upsample
-gbmFit3 <- train(default ~ ., data = training_up, 
-                 method = "gbm", 
-                 trControl = fitControl, 
-                 verbose = FALSE,
-                 metric = "ROC",
-                 tuneGrid = gbmGrid_v2)
-gbmFit3
-
-
-varImp(gbmFit3)
-
-#Let's get our predictions, confusion matrix and auc
-testing_df$predictions = predict(gbmFit3, newdata = testing_df)
-#Let us check the confusion matrix
-confusionMatrix(data = testing_df$predictions, reference = testing_df$default,
-                mode = "everything", positive="yes")
-
-#Note that the ROCR package offers some great metrics by using the 'prediction' function
-testing_df$probability <- predict(gbmFit3, newdata = testing_df, type = "prob")
-
-pred = prediction(testing_df$probability[,2], testing_df$default)
-
-#Let us look at the AUC
-auc = performance(pred, "auc")@y.values[[1]]
-auc
-
-
-### Model Evaluations
-
-## Confusion Matrix
-## AUC of each model
-# add a table
-# add ROCs for all 4 models
-
-
-## ROC
-plot(roc_object, col="blue", main="ROC Curve")
-plot(roc_svm,  col = "red", add = TRUE)
-legend("right", legend = c("glm", "svm"), col = c("blue", "red"), lty=1:1)
-
-### Model Optimisations
+# Optimisation Summary ####
 
 ## AUC of each version of GBM models
 # add a table
 # add ROCs for key GBM models showing improvements after tuning
 
-## Final Model - GBM
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+# Final GBM Model ####
 
 
 
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+# Output ####
 ## Produce validation output
 
 ##
