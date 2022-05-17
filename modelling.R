@@ -1,6 +1,6 @@
 ###
 #
-# MLAA Assignment 2 Part A
+# MLAA Assignment 2 Part A ####
 #
 # Students:
 # Ivan Cheung - 13975420
@@ -8,12 +8,9 @@
 # Dinh Tran -
 # John Rho - 24509337
 #
-#
-#
-#
 ###
 
-## Libraries
+# Libraries ####
 #install.packages("AMR")
 library(dplyr)
 library(caret)
@@ -27,22 +24,19 @@ library(ggplot2)
 library(e1071)
 
 ## Load Data - Ivan
+
 rm(list = ls())
 df <- read.csv('AT2_credit_train.csv')
 df_raw <- df
 
+##
+#
+# EDA ####
 
-## EDA ----
-######### Ryan
-str(df)
-df$LIMIT_BAL <-  as.integer(df$LIMIT_BAL)
+str(df) # check shape
 df$ID <- NULL # drop ID
-df %>% summarise_all(n_distinct) 
-# SEX has 6 unique values - should be only 2
-# Education has 7 values - should be 6,
-# Marriage has 4, should be 3 only
-# PAY_AMT is binary?
 
+## Dependent variable ####
 # Check target var <- default
 sum(is.na(df)) # check missing value - null
 unique(df$default) # check target var
@@ -58,61 +52,89 @@ tb_default # 0:1 = 16974:6127
 tbl_prop <- prop.table(tb_default)
 tbl_prop # we have unbalanced data. approx 0:1 = 3:1
 
+## Independent variables ####
+# check other independent variables
+df %>% summarise_all(n_distinct) 
+# SEX has 6 unique values - should be only 2
+# Education has 7 values - should be 6,
+# Marriage has 4, should be 3 only
+# PAY_AMT could be transformed as binary
+
 # LIMIT_BAL
 p<-ggplot(data=df, aes(x=LIMIT_BAL)) +
   geom_histogram()
-p # check
+p
 
 # SEX
+unique(df$SEX) # SEX contains wrong inputs
+tb_sex <- table(df$SEX)
+tb_sex # count 4
+
 p<-ggplot(data=df, aes(x=SEX)) +
   geom_histogram(stat="count")
-p # # SEX contains wrong values
+p
 
 # MARRIAGE
+tb_marriage <- table(df$MARRIAGE) # check distribution
+tb_marriage # 0 <- 3
+
 p<-ggplot(data=df, aes(x=MARRIAGE)) +
   geom_histogram()
 p
 
 # AGE
+unique(df$AGE)
+tb_age <- table(df$AGE) # check distribution
+tb_age # 
+summary(df$AGE)
+
 p<-ggplot(data=df, aes(x=AGE)) +
   geom_histogram()
 p
 
 # EDUCATION
+tb_edu <- table(df$EDUCATION) # check distribution
+tb_edu # 0 <- 4(others), 6(unknown) <- 5(unknown)
+
 p<-ggplot(data=df, aes(x=EDUCATION)) +
   geom_histogram()
 p
 
-## Data Cleaning                                                                                ----
+##
+#
+# Data Cleaning ####
 
+# LIMIT_BAL
 # remove observations with limit bal less than 0
+df$LIMIT_BAL <-  as.integer(df$LIMIT_BAL) # change LIMIT_BAL to integer
+df <- subset(df, df$LIMIT_BAL > 0) 
 # obs removed = 19
-df <- subset(df, df$LIMIT_BAL > 0) ####(COMPARE RESULTS with vs without)
+# Higher AUC on test set without. (Compared results with vs without)
 
+# SEX
 # remove observations with sex != 1 or 2
 # obs removed = 0 -- The obs with invalid sex entries were picked up in the previous cleaning step
 df <- subset(df, df$SEX == 1 | df$SEX == 2)
 
+# MARRIAGE
 # remove observations with marriage != 1,2 or 3
 # obs removed = 45
-df <- subset(df, df$MARRIAGE == 1 | df$MARRIAGE == 2 | df$MARRIAGE == 3) 
-####(COMPARE RESULTS 0+3 vs 3)
+#df <- subset(df, df$MARRIAGE == 1 | df$MARRIAGE == 2 | df$MARRIAGE == 3) 
+##(COMPARE RESULTS 0+3 vs 3)
+## update - the class 0 = others e.g. de facto, separated etc
 
+# AGE
 # remove observations with age > 75
 # obs removed = 2
 df <- subset(df, df$AGE <= 75)
 
-# remove observation with education not in 1,2,3,4,5,6
-# obs removed = 12
-df <- subset(df, df$EDUCATION >= 1 & df$EDUCATION <= 6) ## There isn't any class above 6?
+# EDUCATION
+# 0 <- 4(others), 6(unknown) <- 5(unknown)
+df$EDUCATION[df$EDUCATION == 0] <- 4 # reducing class
+df$EDUCATION[df$EDUCATION == 6] <- 5
 table(df$EDUCATION)
 
-# we can just to below
-#df$EDUCATION[df$EDUCATION == 0] <- 4 # reducing class
-#df$EDUCATION[df$EDUCATION == 6] <- 5
-
-
-# total obs removed from raw dataset = 78 (0.33% of raw data removed)
+# total obs removed from raw dataset = 21 (0.09% of raw data removed)
 
 # Convert default to factor
 df$default  <- as.factor(df$default)
@@ -128,17 +150,17 @@ df$PAY_AMT6[df$PAY_AMT6 > 0] <- 1
 ## Build additional factors
 
 # Age Band
-df$AGE_BAND[df$AGE <= 30] <- 1
-df$AGE_BAND[df$AGE > 30 & df$AGE <= 40] <- 2
-df$AGE_BAND[df$AGE > 40 & df$AGE <= 50] <- 3
-df$AGE_BAND[df$AGE > 50 & df$AGE <= 60] <- 4
-df$AGE_BAND[df$AGE > 60 & df$AGE <= 70] <- 5
-df$AGE_BAND[df$AGE > 70] <- 6
+#df$AGE_BAND[df$AGE <= 30] <- 1
+#df$AGE_BAND[df$AGE > 30 & df$AGE <= 40] <- 2
+#df$AGE_BAND[df$AGE > 40 & df$AGE <= 50] <- 3
+#df$AGE_BAND[df$AGE > 50 & df$AGE <= 60] <- 4
+#df$AGE_BAND[df$AGE > 60 & df$AGE <= 70] <- 5
+#df$AGE_BAND[df$AGE > 70] <- 6
 
-p<-ggplot(data=df, aes(x=AGE_BAND)) +
-  geom_histogram()
-p
-table(df$AGE_BAND)
+#p<-ggplot(data=df, aes(x=AGE_BAND)) +
+#  geom_histogram()
+#p
+#table(df$AGE_BAND)
 
 # NO_PAY_DELAY
 df$NO_PAY_DELAY <- case_when(df$PAY_0 > 0 | 
