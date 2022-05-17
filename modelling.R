@@ -23,7 +23,7 @@ library(magrittr)
 library(AMR)
 library(ROCR)
 library(ggplot2)
-
+library(pROC)
 library(e1071)
 
 ## Load Data - Ivan
@@ -206,8 +206,9 @@ print(prop.table(tab_temp2))
 
 # subsampling the training_df
 set.seed(7)
-levels(training_df$default) <- c("no", "yes") # prep for caret
-levels(testing_df$default) <- c("no", "yes") # prep for caret
+levels(trainset$default) <- c("no", "yes") # prep for caret
+levels(testset$default) <- c("no", "yes") # prep for caret
+
 ## upsampling
 training_up <- upSample(x=trainset[,-ncol(trainset)],# changed to trainset from traing_df
                         y= trainset$default)#changed to trainset from traing_df
@@ -290,7 +291,7 @@ mean(pred_train==trainset$default)
 pred_test <- predict(svm_model,testset)
 predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
 
-svm_probabilties <- attr(predict_probability, "probabilities")[,"Y"]
+svm_probabilties <- attr(predict_probability, "probabilities")[,"1"]
 mean(pred_test==testset$default)
 
 cfm <- confusionMatrix(pred_test, testset$default, "Y")
@@ -342,7 +343,7 @@ cfm <- confusionMatrix(testset$prediction, testset$default, "1")
 cfm
 
 #AUC 
-library(pROC)
+
 roc_object <- roc(testset$default,testset$probability)
 auc(roc_object)
 
