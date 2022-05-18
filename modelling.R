@@ -1044,7 +1044,14 @@ gbm_auc
 
 # Optimisation Summary ####
 
-
+pred <- prediction(testset$predictions, testset$labels )
+pred2 <- prediction(abs(testset$predictions + 
+                          rnorm(length(testset$predictions), 0, 0.1)), 
+                    testset$labels)
+perf <- performance( pred, "tpr", "fpr" )
+perf2 <- performance(pred2, "tpr", "fpr")
+plot(perf, colorize = TRUE)
+plot(perf2, add = TRUE, colorize = TRUE)
 
 
 ## AUC of each version of GBM models
