@@ -143,9 +143,6 @@ table(df$EDUCATION)
 
 # total obs removed from raw dataset = 21 (0.09% of raw data removed)
 
-# Convert default to factor
-df$default  <- as.factor(df$default)
-
 # Reduce PAY_AMT columns to 0 and 1
 df$PAY_AMT1[df$PAY_AMT1 > 0] <- 1
 df$PAY_AMT2[df$PAY_AMT2 > 0] <- 1
@@ -154,6 +151,7 @@ df$PAY_AMT4[df$PAY_AMT4 > 0] <- 1
 df$PAY_AMT5[df$PAY_AMT5 > 0] <- 1
 df$PAY_AMT6[df$PAY_AMT6 > 0] <- 1
 
+str(df)
 ## Build additional factors
 
 # Age Band
@@ -170,16 +168,30 @@ df$PAY_AMT6[df$PAY_AMT6 > 0] <- 1
 #table(df$AGE_BAND)
 
 # NO_PAY_DELAY
-df$NO_PAY_DELAY <- case_when(df$PAY_0 > 0 | 
-                             df$PAY_2 > 0 | 
-                             df$PAY_3 > 0 |
-                             df$PAY_4 > 0 |
-                             df$PAY_5 > 0 |
-                             df$PAY_6 > 0 ~ 0,
-                           TRUE ~ 1)
+# - assumption no longer vaild
+# df$NO_PAY_DELAY <- case_when(df$PAY_0 > 0 | 
+#                             df$PAY_2 > 0 | 
+#                             df$PAY_3 > 0 |
+#                             df$PAY_4 > 0 |
+#                             df$PAY_5 > 0 |
+#                             df$PAY_6 > 0 ~ 0,
+#                           TRUE ~ 1)
 
-table(df$NO_PAY_DELAY)
-# I believe we lose a lot of information here. This is like all or nothing approach. e.g. may miss one but make the rest on time. 
+# table(df$NO_PAY_DELAY)
+
+# Convert categorical variables to factors
+df$default  <- as.factor(df$default)
+df$SEX <- as.factor(df$SEX)
+df$EDUCATION <- as.factor(df$EDUCATION)
+df$MARRIAGE <- as.factor(df$MARRIAGE)
+df$PAY_AMT1 <- as.factor(df$PAY_AMT1)
+df$PAY_AMT2 <- as.factor(df$PAY_AMT2)
+df$PAY_AMT3 <- as.factor(df$PAY_AMT3)
+df$PAY_AMT4 <- as.factor(df$PAY_AMT4)
+df$PAY_AMT5 <- as.factor(df$PAY_AMT5)
+df$PAY_AMT6 <- as.factor(df$PAY_AMT6)
+
+str(df)
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -815,7 +827,7 @@ gbmGrid_v2 <-  expand.grid(interaction.depth = 4,
 
 
 
-gbmFit1 <- train(default ~ ., data = training_df, 
+gbmFit1 <- train(default ~ ., data = trainset, 
                  method = "gbm", 
                  trControl = fitControl, 
                  verbose = FALSE,
@@ -845,14 +857,14 @@ gbmFit3
 varImp(gbmFit3)
 
 #Let's get our predictions, confusion matrix and auc
-testing_df$predictions = predict(gbmFit3, newdata = testing_df)
+testset$predictions = predict(gbmFit3, newdata = testset)
 #Let us check the confusion matrix
-confusionMatrix(data = testing_df$predictions, reference = testing_df$default,
+confusionMatrix(data = testset$predictions, reference = testset$default,
                 mode = "everything", positive="yes")
 
-testing_df$probability <- predict(gbmFit3, newdata = testing_df, type = "prob")
+testset$probability <- predict(gbmFit3, newdata = testset, type = "prob")
 
-pred = prediction(testing_df$probability[,2], testing_df$default)
+pred = prediction(testset$probability[,2], testset$default)
 
 #Let us look at the AUC
 auc = performance(pred, "auc")@y.values[[1]]
@@ -1031,7 +1043,9 @@ gbm_auc
 #_________________________________________________________________________#
 
 # Optimisation Summary ####
-# Ryan to do
+
+
+
 
 ## AUC of each version of GBM models
 # add a table
@@ -1051,7 +1065,42 @@ gbm_auc
 #_________________________________________________________________________#
 
 # Output ####
-# Ryan to do
+# Prep the validation set
+df_validation = read.csv("AT2_credit_test.csv")
+levels(df$default) <- c("no", "yes") # prep for caret
+
+df_validation$EDUCATION[df_validation$EDUCATION == 0] <- 4 # reducing class
+df_validation$EDUCATION[df_validation$EDUCATION == 6] <- 5
+df_validation$PAY_AMT1[df_validation$PAY_AMT1 != 0] <- 1
+df_validation$PAY_AMT2[df_validation$PAY_AMT2 != 0] <- 1
+df_validation$PAY_AMT3[df_validation$PAY_AMT3 != 0] <- 1
+df_validation$PAY_AMT4[df_validation$PAY_AMT4 != 0] <- 1
+df_validation$PAY_AMT5[df_validation$PAY_AMT5 != 0] <- 1
+df_validation$PAY_AMT6[df_validation$PAY_AMT6 != 0] <- 1
+
+# Define final categorical variables 
+df_validation$SEX <- as.factor(df_validation$SEX)
+df_validation$EDUCATION <- as.factor(df_validation$EDUCATION)
+df_validation$MARRIAGE <- as.factor(df_validation$MARRIAGE)
+df_validation$PAY_AMT1 <- as.factor(df_validation$PAY_AMT1)
+df_validation$PAY_AMT2 <- as.factor(df_validation$PAY_AMT2)
+df_validation$PAY_AMT3 <- as.factor(df_validation$PAY_AMT3)
+df_validation$PAY_AMT4 <- as.factor(df_validation$PAY_AMT4)
+df_validation$PAY_AMT5 <- as.factor(df_validation$PAY_AMT5)
+df_validation$PAY_AMT6 <- as.factor(df_validation$PAY_AMT6)
+
+
 ## Produce validation output
+pred_prob <- predict(gbm_fnl, newdata = df_validation, type = "prob",predict.all=TRUE)
+target_prob <- pred_prob$yes 
+
+df_validation$default <- target_prob # add probabilities as default
+
+#prepare only ID, target_probability, target_class for export
+output_export <- df_validation %>% dplyr::select(ID, default)
+
+# Export as csv
+write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output.csv", row.names = FALSE)
+
 
 ##
