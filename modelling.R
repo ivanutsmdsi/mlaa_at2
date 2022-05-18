@@ -284,7 +284,6 @@ confusionMatrix(p1_test, testDinh$default, positive = "yes")
 test_pred1 <- predict(forest1, testDinh, type="prob")
 train_pred1 <- predict(forest1, trainDinh, type="prob")
 
-library(pROC)
 #ROC curve on train and test sets
 plot(roc(testDinh$default, test_pred1[[2]]), print.auc=TRUE, col="red", 
      xlim=c(0,1), main="Model 1 with trainset")
@@ -735,7 +734,7 @@ write.csv(test_gbm4, "gbm4_revisit.csv",row.names=FALSE)
 ## SVM ####
 ## Model 2 Ivan
 svm_model<- 
-  svm(default ~ LIMIT_BAL + MARRIAGE + AGE + NO_PAY_DELAY + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6
+  svm(default ~ LIMIT_BAL + MARRIAGE + AGE + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6
       , data=trainset, type="C-classification", kernel="linear", scale = TRUE, probability=TRUE)
 
 pred_train <- predict(svm_model,newdata = trainset)
@@ -744,12 +743,12 @@ mean(pred_train==trainset$default)
 pred_test <- predict(svm_model,testset)
 predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
 
-svm_probabilties <- attr(predict_probability, "probabilities")[,"1"]
+svm_probabilties <- attr(predict_probability, "probabilities")[,1]
 mean(pred_test==testset$default)
 
-cfm <- confusionMatrix(pred_test, testset$default, "1")
+cfm <- confusionMatrix(pred_test, testset$default, "yes")
 
-cfm[["overall"]][["Accuracy"]]
+cfm[["byClass"]][["Balanced Accuracy"]]
 cfm[["byClass"]][["Precision"]]
 cfm[["byClass"]][["Recall"]]
 
