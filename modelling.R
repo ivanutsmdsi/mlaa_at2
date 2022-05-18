@@ -75,16 +75,22 @@ unique(df$SEX) # SEX contains wrong inputs
 tb_sex <- table(df$SEX)
 tb_sex # count 4
 
-p<-ggplot(data=df, aes(x=SEX)) +
-  geom_histogram(stat="count")
+# p<-ggplot(data=df, aes(x=SEX), fill="SEX") +
+#   geom_histogram(stat="count")
+p<-ggplot(data=df)+aes(x=SEX, fill=SEX)+geom_bar()+labs(title="Gender distribution" )
 p
 
 # MARRIAGE
 tb_marriage <- table(df$MARRIAGE) # check distribution
 tb_marriage # 0 <- 3
 
-p<-ggplot(data=df, aes(x=MARRIAGE)) +
-  geom_histogram()
+# p<-ggplot(data=df, aes(x=MARRIAGE)) +
+#   geom_histogram()
+# p
+
+
+p<-ggplot(data=df)+ aes(x=as.factor(MARRIAGE), fill=as.factor(MARRIAGE)) +
+     geom_bar() +labs( x="MARRIAGE",title="Marriage by categories", fill = "MARRIAGE" )
 p
 
 # AGE
@@ -94,15 +100,28 @@ tb_age #
 summary(df$AGE)
 
 p<-ggplot(data=df, aes(x=AGE)) +
-  geom_histogram()
+  geom_histogram(colour = "blue", fill = "white", 
+                 binwidth = 10)+ scale_x_continuous(limits = c(20, 160), breaks = seq(20, 160, by = 10))+labs( x="AGE",title="Age distribution")
 p
 
 # EDUCATION
 tb_edu <- table(df$EDUCATION) # check distribution
 tb_edu # 0 <- 4(others), 6(unknown) <- 5(unknown)
 
-p<-ggplot(data=df, aes(x=EDUCATION)) +
-  geom_histogram()
+# p<-ggplot(data=df, aes(x=EDUCATION)) +
+#   geom_histogram( binwidth = 1)
+# p
+
+p<-ggplot(data=df)+ aes(x=as.factor(EDUCATION), fill=as.factor(EDUCATION)) +
+  geom_bar() +labs( x="EDUCATION",title="Education by categories", fill = "EDUCATION" )
+
+p
+
+
+#defaultgit staus
+
+
+p<-ggplot(data=df)+aes(x=default, fill=default)+geom_bar()
 p
 
 #_________________________________________________________________________#
