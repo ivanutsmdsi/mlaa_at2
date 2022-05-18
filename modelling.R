@@ -241,6 +241,11 @@ table(training_dn$default)
 
 # Modelling ####
 
+## Create results df
+cfm <- data.frame(model = character(), acc = numeric(), prec = numeric(), recall = numeric(), f1 = numeric())
+
+auc <- data.frame(model = character(), auc = numeric())
+
 ## Random Forest ####
 
 ## Model 1 Dinh  Random  Forest & gbm
@@ -279,7 +284,21 @@ confusionMatrix(p1_train, trainDinh$default, positive = "yes")
 
 #confusion matrix for test set
 p1_test<- predict(forest1, testDinh, type="raw")
-confusionMatrix(p1_test, testDinh$default, positive = "yes")
+
+
+cfm_temp <- confusionMatrix(p1_test, testDinh$default, positive = "yes")
+
+d <- c("forest", 
+       cfm_temp[["byClass"]][["Balanced Accuracy"]],
+       cfm_temp[["byClass"]][["Precision"]],
+       cfm_temp[["byClass"]][["Recall"]],
+       cfm_temp[["byClass"]][["F1"]])
+
+d <- as.list(d)
+names(d) <- names(cfm)
+
+cfm <- rbind(cfm, d)
+
 
 test_pred1 <- predict(forest1, testDinh, type="prob")
 train_pred1 <- predict(forest1, trainDinh, type="prob")
@@ -292,10 +311,18 @@ plot(roc(trainDinh$default, train_pred1[[2]]), print.auc=TRUE, col="blue",
 
 plot(varImp(forest1), main="Important features plot") 
 
+roc_forest <- roc(testset$default,test_pred1[[2]], plot=TRUE)
+plot(roc_forest, col="red", main="Forest ROC Curve")
+
+a <- c("forest", auc_temp = auc(roc_forest))
+a <- as.list(a)
+names(a) <- names(auc)
+
+auc <- rbind(auc, a)
 
 ### Remove AGE_BAND, NO_PAY_DELAY  variables ad they have high correlations with other variables
 #model
-forest2 <- train(default~.-AGE_BAND-NO_PAY_DELAY, data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
+forest2 <- train(default~., data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
 print(forest2)
 plot(forest2)
 
@@ -734,28 +761,53 @@ write.csv(test_gbm4, "gbm4_revisit.csv",row.names=FALSE)
 ## SVM ####
 ## Model 2 Ivan
 svm_model<- 
-  svm(default ~ LIMIT_BAL + MARRIAGE + AGE + PAY_0 + PAY_2 + PAY_3 + PAY_4 + PAY_5 + PAY_6
+  svm(default ~ .
       , data=trainset, type="C-classification", kernel="linear", scale = TRUE, probability=TRUE)
 
 pred_train <- predict(svm_model,newdata = trainset)
 mean(pred_train==trainset$default)
+summary(pred_train)
 
-pred_test <- predict(svm_model,testset)
+pred_test <- predict(svm_model,newdata = testset, na.action = na.pass)
+summary(pred_test)
 predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
+summary(predict_probability)
 
 svm_probabilties <- attr(predict_probability, "probabilities")[,1]
 mean(pred_test==testset$default)
 
-cfm <- confusionMatrix(pred_test, testset$default, "yes")
 
-cfm[["byClass"]][["Balanced Accuracy"]]
-cfm[["byClass"]][["Precision"]]
-cfm[["byClass"]][["Recall"]]
+cfm_temp <- confusionMatrix(pred_test, testset$default, "1")
+
+d <- c("svm", 
+  cfm_temp[["byClass"]][["Balanced Accuracy"]],
+  cfm_temp[["byClass"]][["Precision"]],
+  cfm_temp[["byClass"]][["Recall"]],
+  cfm_temp[["byClass"]][["F1"]])
+
+d <- as.list(d)
+names(d) <- names(cfm)
+
+cfm <- rbind(cfm, d)
+
+
+
 
 ##AUC/ROC
 roc_svm <- roc(testset$default,svm_probabilties, plot=TRUE)
 plot(roc_svm, col="red", main="SVM ROC Curve")
-auc(roc_svm)
+
+
+
+a <- c("svm", auc_temp = auc(roc_svm))
+a <- as.list(a)
+names(a) <- names(auc)
+
+auc <- rbind(auc, a)
+
+#remove model variables
+rm(d, cfm_temp)
+rm(svm_probabilties, predict_probability, pred_test, pred_train, svm_model)
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -776,7 +828,7 @@ summary(AT2.glm )
 
 
 #Try training model with variables with significant p value 
-AT2.glm_sig = glm(formula = default~ LIMIT_BAL+MARRIAGE+AGE+PAY_0 +PAY_2+PAY_AMT3+NO_PAY_DELAY,
+AT2.glm_sig = glm(formula = default~ LIMIT_BAL+MARRIAGE+AGE+PAY_0 +PAY_2+PAY_AMT3,
                   data = trainset,
                   family = "binomial")
 summary(AT2.glm_sig)
@@ -791,14 +843,38 @@ table(testset$prediction)
 
 testset$prediction<-as.factor(testset$prediction)
 #confusion matrix 
-cfm <- confusionMatrix(testset$prediction, testset$default, "1")
-cfm
+cfm_temp <- confusionMatrix(testset$prediction, testset$default, "1")
+
+d <- c("glm", 
+       cfm_temp[["byClass"]][["Balanced Accuracy"]],
+       cfm_temp[["byClass"]][["Precision"]],
+       cfm_temp[["byClass"]][["Recall"]],
+       cfm_temp[["byClass"]][["F1"]])
+
+d <- as.list(d)
+
+cfm <- rbind(cfm, d)
+
+
 
 #AUC 
 
-roc_object <- roc(testset$default,testset$probability)
-auc(roc_object)
+roc_glm <- roc(testset$default,testset$probability)
+auc(roc_glm)
 
+plot(roc_glm, col="red", main="GLM ROC Curve")
+
+
+
+a <- c("glm", auc_temp = auc(roc_glm))
+a <- as.list(a)
+names(a) <- names(auc)
+
+auc <- rbind(auc, a)
+
+#remove model variables
+rm(d, cfm_temp, a)
+rm(AT2.glm, AT2.glm_sig)
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -857,8 +933,9 @@ varImp(gbmFit3)
 
 #Let's get our predictions, confusion matrix and auc
 testset$predictions = predict(gbmFit3, newdata = testset)
+
 #Let us check the confusion matrix
-confusionMatrix(data = testset$predictions, reference = testset$default,
+cfm_temp <- confusionMatrix(data = testset$predictions, reference = testset$default,
                 mode = "everything", positive="yes")
 
 testset$probability <- predict(gbmFit3, newdata = testset, type = "prob")
@@ -875,17 +952,16 @@ auc
 
 # Modelling Summary ####
 
-# Ivan
-## Confusion Matrix
-## AUC of each model
-# add a table
-# add ROCs for all 4 models
+## Confusion Matrix Results
+cfm
 
+## ROC and AUC of each model
+plot(roc_forest, col="red", main="Model ROC Curves")
+plot(roc_svm, col="blue", add=TRUE)
+plot(roc_glm, col="green", add=TRUE)
+legend("right", legend = c("forest", "svm", "glm"), col = c("red", "blue", "green"), lty=1:1, box.lty=0)
 
-## ROC
-plot(roc_object, col="blue", main="ROC Curve")
-plot(roc_svm,  col = "red", add = TRUE)
-legend("right", legend = c("glm", "svm"), col = c("blue", "red"), lty=1:1)
+auc
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
