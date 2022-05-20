@@ -855,12 +855,21 @@ plot(perf2, add = TRUE, colorize = TRUE)
 set.seed(42)
 final_Control <- trainControl(method = 'cv', number = 10, 
                            savePredictions = 'final', classProbs = TRUE, summaryFunction = twoClassSummary)
-gbm_grid_final =  expand.grid(
+gbm_grid_finalv6 =  expand.grid(
   interaction.depth = c(5),
-  n.trees = c(200), 
+  n.trees = c(350,450,550), 
   shrinkage = c(0.05),
-  n.minobsinnode = c(15)
+  n.minobsinnode = c(10,15)
 )
+
+# v5 is our current best
+gbm_grid_finalv5 =  expand.grid(
+  interaction.depth = c(5),
+  n.trees = c(350,450), 
+  shrinkage = c(0.05),
+  n.minobsinnode = c(10,15)
+)
+
 levels(df$default) <- c("no", "yes")
 
 gbm_final = train( x = df[, -c(24)],  y = df$default, 
@@ -872,12 +881,12 @@ gbm_final
 
 
 #confusion matrix
-p_gbm2 <-predict(gbm_2, df)
+p_gbm2 <-predict(gbm_final, df)
 cfm_gbm2 <- confusionMatrix(data=p_gbm2, reference=as.factor(df$default), positive="yes")
 cfm_gbm2
 
 #plot roc curve
-gbm_prob2 <- predict(gbm_2, df, type = "prob")$"yes"
+gbm_prob2 <- predict(gbm_final, df, type = "prob")$"yes"
 perf_gbm2 <- prediction(gbm_prob2, df$default) %>% performance(measure = "tpr", x.measure = "fpr")
 plot(perf_gbm2, col = "blue", lty = 2, main="ROC curveusing gbm2")
 abline(a=0,b=1)
@@ -927,7 +936,7 @@ df_validation$default <- target_prob # add probabilities as default
 output_export <- df_validation %>% dplyr::select(ID, default)
 
 # Export as csv
-write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output_2005_v2.csv", row.names = FALSE)
+write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output_2005_v5.csv", row.names = FALSE)
 
 
 ##
