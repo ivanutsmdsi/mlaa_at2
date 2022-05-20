@@ -857,7 +857,7 @@ final_Control <- trainControl(method = 'cv', number = 10,
                            savePredictions = 'final', classProbs = TRUE, summaryFunction = twoClassSummary)
 gbm_grid_final =  expand.grid(
   interaction.depth = c(5),
-  n.trees = c(300), 
+  n.trees = c(200), 
   shrinkage = c(0.05),
   n.minobsinnode = c(15)
 )
