@@ -47,6 +47,7 @@ sum(is.na(df)) # check missing value - null
 unique(df$default) # check target var
 df$default[df$default == "Y"] <- 1 # converting to match data dictionary
 df$default[df$default == "N"] <- 0 # converting to match data dictionary
+levels(df$default) <- c("no", "yes")
 df$default <- as.integer(df$default) # set as integer
 df$default <- as.factor(df$default) # set as factor
 levels(df$default) # check factor, 1 = yes
@@ -70,6 +71,11 @@ p<-ggplot(data=df, aes(x=LIMIT_BAL)) +
   geom_histogram()
 p
 
+p <- ggplot(df, aes(x = default, y = LIMIT_BAL, colour=default)) +
+  geom_boxplot(size = .75)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+labs(x="default payment next month", y="Limit Balance")
+p
+
 # SEX
 unique(df$SEX) # SEX contains wrong inputs
 tb_sex <- table(df$SEX)
@@ -87,7 +93,6 @@ tb_marriage # 0 <- 3
 # p<-ggplot(data=df, aes(x=MARRIAGE)) +
 #   geom_histogram()
 # p
-
 
 p<-ggplot(data=df)+ aes(x=as.factor(MARRIAGE), fill=as.factor(MARRIAGE)) +
      geom_bar() +labs( x="MARRIAGE",title="Marriage by categories", fill = "MARRIAGE" )
@@ -141,13 +146,11 @@ df <- subset(df, df$LIMIT_BAL > 0)
 # remove observations with sex != 1 or 2
 # obs removed = 0 -- The obs with invalid sex entries were picked up in the previous cleaning step
 df <- subset(df, df$SEX == 1 | df$SEX == 2)
+df$SEX <- as.integer(df$SEX)
 
 # MARRIAGE
-# remove observations with marriage != 1,2 or 3
-# obs removed = 45
-#df <- subset(df, df$MARRIAGE == 1 | df$MARRIAGE == 2 | df$MARRIAGE == 3) 
-##(COMPARE RESULTS 0+3 vs 3)
-## update - the class 0 = others e.g. de facto, separated etc
+
+df$MARRIAGE[df$MARRIAGE == 0] <- 3 # combine 0 & 3
 
 # AGE
 # remove observations with age > 75
@@ -200,9 +203,9 @@ str(df)
 
 # Convert categorical variables to factors
 df$default  <- as.factor(df$default)
-df$SEX <- as.factor(df$SEX)
-df$EDUCATION <- as.factor(df$EDUCATION)
-df$MARRIAGE <- as.factor(df$MARRIAGE)
+#df$SEX <- as.factor(df$SEX)
+#df$EDUCATION <- as.factor(df$EDUCATION)
+#df$MARRIAGE <- as.factor(df$MARRIAGE)
 df$PAY_AMT1 <- as.factor(df$PAY_AMT1)
 df$PAY_AMT2 <- as.factor(df$PAY_AMT2)
 df$PAY_AMT3 <- as.factor(df$PAY_AMT3)
@@ -210,7 +213,6 @@ df$PAY_AMT4 <- as.factor(df$PAY_AMT4)
 df$PAY_AMT5 <- as.factor(df$PAY_AMT5)
 df$PAY_AMT6 <- as.factor(df$PAY_AMT6)
 
-str(df)
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -391,7 +393,7 @@ abline(a=0,b=1)
 
 #forest5 gives auc 0.791 (  0.7914978 to be more exact)
 
-#---------------------------------
+#---------------------------------#
 
 #tunning mtry, ntrees=300
 tunegrid <- expand.grid(.mtry=c(6:13))
@@ -714,7 +716,7 @@ auc#}}}}} AUC 0.7502347
 
 
 
-#------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------#
 #### Dinh tried gbm 
 #tunning ntrees, interaction.depth
 
@@ -850,100 +852,40 @@ plot(perf2, add = TRUE, colorize = TRUE)
 #gbm 2 gitROC was used to select the optimal model using the largest value.
 #The final values used for the model were n.trees = 300, interaction.depth = 5, shrinkage = 0.05
 #and n.minobsinnode = 15.
-gbm_grid2 =  expand.grid(
-  interaction.depth = c(3,4,5),
-  n.trees = c(200,300,400,500), 
-  shrinkage = c(0.1,0.05, 0.01),
-  n.minobsinnode = c(5,10,15)
-)
 set.seed(42)
-gbm_2 = train( x = trainDinh[, -c(24,25,26)],  y = trainDinh$default, 
-               method = "gbm", 
-               trControl = control, verbose = FALSE,
-               tuneGrid= gbm_grid2, metric="ROC")
+final_Control <- trainControl(method = 'cv', number = 10, 
+                           savePredictions = 'final', classProbs = TRUE, summaryFunction = twoClassSummary)
+gbm_grid_final =  expand.grid(
+  interaction.depth = c(5),
+  n.trees = c(300), 
+  shrinkage = c(0.05),
+  n.minobsinnode = c(15)
+)
+levels(df$default) <- c("no", "yes")
 
-gbm_2
+gbm_final = train( x = df[, -c(24)],  y = df$default, 
+               method = "gbm", 
+               trControl = final_Control, verbose = FALSE,
+               tuneGrid= gbm_grid_final, metric="ROC")
+
+gbm_final
 
 
 #confusion matrix
-p_gbm2 <-predict(gbm_2, testDinh)
-cfm_gbm2 <- confusionMatrix(data=p_gbm2, reference=as.factor(testDinh$default), positive="yes")
+p_gbm2 <-predict(gbm_2, df)
+cfm_gbm2 <- confusionMatrix(data=p_gbm2, reference=as.factor(df$default), positive="yes")
 cfm_gbm2
 
 #plot roc curve
-gbm_prob2 <- predict(gbm_2, testDinh, type = "prob")$"yes"
-perf_gbm2 <- prediction(gbm_prob2, testDinh$default) %>% performance(measure = "tpr", x.measure = "fpr")
+gbm_prob2 <- predict(gbm_2, df, type = "prob")$"yes"
+perf_gbm2 <- prediction(gbm_prob2, df$default) %>% performance(measure = "tpr", x.measure = "fpr")
 plot(perf_gbm2, col = "blue", lty = 2, main="ROC curveusing gbm2")
 abline(a=0,b=1)
 
 #AUC
-gbm_auc2 <-performance(prediction(gbm_prob2, testDinh$default),"auc")
+gbm_auc2 <-performance(prediction(gbm_prob2, df$default),"auc")
 gbm_auc2<-unlist(slot(gbm_auc2, "y.values"))
 gbm_auc2
-
-
-# apply on the validation set for Kaggle
-
-
-test<-read.csv("AT2_credit_test.csv")
-ID_column <- test$ID
-
-ID_column
-a<- c("no", "yes")
-
-
-test$default <-sample(a,1)
-test$default <-as.factor(test$default)
-levels(test$default) <- c("no", "yes")
-test$LIMIT_BAL <-  as.integer(test$LIMIT_BAL)
-test$ID <- NULL # drop ID
-
-
-# total obs removed from raw dataset = 78 (0.33% of raw data removed)
-
-# Reduce PAY_AMT columns to 0 and 1
-test$PAY_AMT1[test$PAY_AMT1 > 0] <- 1
-test$PAY_AMT2[test$PAY_AMT2 > 0] <- 1
-test$PAY_AMT3[test$PAY_AMT3 > 0] <- 1
-test$PAY_AMT4[test$PAY_AMT4 > 0] <- 1
-test$PAY_AMT5[test$PAY_AMT5 > 0] <- 1
-test$PAY_AMT6[test$PAY_AMT6 > 0] <- 1
-
-
-## Build additional factors
-
-# Age Band
-test$AGE_BAND[test$AGE <= 30] <- 1
-test$AGE_BAND[test$AGE > 30 & test$AGE <= 40] <- 2
-test$AGE_BAND[test$AGE > 40 & test$AGE <= 50] <- 3
-test$AGE_BAND[test$AGE > 50 & test$AGE <= 60] <- 4
-test$AGE_BAND[test$AGE > 60 & test$AGE <= 70] <- 5
-test$AGE_BAND[test$AGE > 70] <- 6
-
-# NO_PAY_DELAY
-test$NO_PAY_DELAY <- case_when(test$PAY_0 > 0 | 
-                                 test$PAY_2 > 0 | 
-                                 test$PAY_3 > 0 |
-                                 test$PAY_4 > 0 |
-                                 test$PAY_5 > 0 |
-                                 test$PAY_6 > 0 ~ 0,
-                               TRUE ~ 1)
-
-
-test[, c(18:23)] <- lapply(test[, c(18:23)], factor)
-
-
-pred_gbm2<- predict(gbm_2, test, type="prob")
-
-test_gbm2 <-cbind(ID_column, pred_gbm2)
-test_gbm2 <-test_gbm2[,-2]
-
-column_names <- c("ID", "default")
-colnames(test_gbm2) <-column_names
-
-write.csv(test_gbm2, "gbm2_revisit.csv",row.names=FALSE)
-
-
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -964,9 +906,9 @@ df_validation$PAY_AMT5[df_validation$PAY_AMT5 != 0] <- 1
 df_validation$PAY_AMT6[df_validation$PAY_AMT6 != 0] <- 1
 
 # Define final categorical variables 
-df_validation$SEX <- as.factor(df_validation$SEX)
-df_validation$EDUCATION <- as.factor(df_validation$EDUCATION)
-df_validation$MARRIAGE <- as.factor(df_validation$MARRIAGE)
+#df_validation$SEX <- as.factor(df_validation$SEX)
+#df_validation$EDUCATION <- as.factor(df_validation$EDUCATION)
+#df_validation$MARRIAGE <- as.factor(df_validation$MARRIAGE)
 df_validation$PAY_AMT1 <- as.factor(df_validation$PAY_AMT1)
 df_validation$PAY_AMT2 <- as.factor(df_validation$PAY_AMT2)
 df_validation$PAY_AMT3 <- as.factor(df_validation$PAY_AMT3)
@@ -976,7 +918,7 @@ df_validation$PAY_AMT6 <- as.factor(df_validation$PAY_AMT6)
 
 
 ## Produce validation output
-pred_prob <- predict(gbm_fnl, newdata = df_validation, type = "prob",predict.all=TRUE)
+pred_prob <- predict(gbm_final, newdata = df_validation, type = "prob",predict.all=TRUE)
 target_prob <- pred_prob$yes 
 
 df_validation$default <- target_prob # add probabilities as default
@@ -985,7 +927,7 @@ df_validation$default <- target_prob # add probabilities as default
 output_export <- df_validation %>% dplyr::select(ID, default)
 
 # Export as csv
-write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output.csv", row.names = FALSE)
+write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output_2005_v2.csv", row.names = FALSE)
 
 
 ##
