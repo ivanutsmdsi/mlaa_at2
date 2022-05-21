@@ -25,6 +25,7 @@ library(ROCR)
 library(ggplot2)
 library(pROC)
 library(e1071)
+library(randomForest)
 
 ## Load Data - Ivan
 
@@ -72,9 +73,17 @@ df %>% summarise_all(n_distinct)
 # PAY_AMT could be transformed as binary
 
 # LIMIT_BAL
-p<-ggplot(data=df, aes(x=LIMIT_BAL)) +
-  geom_histogram()
+# p<-ggplot(data=df, aes(x=LIMIT_BAL)) +
+#   geom_histogram()
+# p
+
+
+p <- ggplot(df, aes(x = default, y = LIMIT_BAL, colour=default)) +
+  geom_boxplot(size = .75) +
+  geom_jitter(alpha = .5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+labs(x="default payment next month", y="Limit Balance")
 p
+
 
 p <- ggplot(df, aes(x = default, y = LIMIT_BAL, colour=default)) +
   geom_boxplot(size = .75)+
@@ -107,7 +116,7 @@ summary(df$AGE)
 
 p<-ggplot(data=df, aes(x=AGE)) +
   geom_histogram(colour = "blue", fill = "white", 
-                 binwidth = 10)+ scale_x_continuous(limits = c(20, 160), breaks = seq(20, 160, by = 10))+labs( x="AGE",title="Age distribution")
+                 binwidth = 10, boundary=20)+ scale_x_continuous( breaks = seq(20, 160, by = 10))+labs( x="AGE",title="Age distribution")
 p
 
 # EDUCATION
@@ -121,6 +130,25 @@ tb_edu # 0 <- 4(others), 6(unknown) <- 5(unknown)
 p<-ggplot(data=df)+ aes(x=as.factor(EDUCATION), fill=as.factor(EDUCATION)) +
   geom_bar() +labs( x="EDUCATION",title="Education by categories", fill = "EDUCATION" )
 
+p
+
+#default
+
+
+p<-ggplot(data=df)+aes(x=default, fill=as.factor(SEX))+geom_bar() +labs(title="Default payment next month by gender", fill = "SEX" )
+p
+
+
+p<-ggplot(data=df)+aes(x=default, fill=as.factor(EDUCATION))+geom_bar() +labs(title="Default payment next month by education level", fill = "EDUCATION" )
+p
+
+p<-ggplot(data=df)+aes(x=as.factor(EDUCATION), fill=as.factor(default))+geom_bar() +labs(title="Default payment next month by education level", fill = "EDUCATION" )
+p
+
+p<-ggplot(data=df)+aes(x=as.factor(EDUCATION), fill=as.factor(EDUCATION))+geom_bar() +labs(title="Default payment next month by education level", fill = "EDUCATION" )+facet_wrap(~default)
+p
+
+ p<-ggplot(data=df)+aes(x=default, fill=as.factor(MARRIAGE))+geom_bar() +labs(title="Default payment next month by marriage status", fill = "MARRIAGE" )
 p
 
 #_________________________________________________________________________#
@@ -195,18 +223,30 @@ str(df)
 
 # table(df$NO_PAY_DELAY)
 
+
 # Convert categorical variables to factors
 df$default  <- as.factor(df$default)
 #df$SEX <- as.factor(df$SEX)
 #df$EDUCATION <- as.factor(df$EDUCATION)
 #df$MARRIAGE <- as.factor(df$MARRIAGE)
-df$PAY_AMT1 <- as.factor(df$PAY_AMT1)
-df$PAY_AMT2 <- as.factor(df$PAY_AMT2)
-df$PAY_AMT3 <- as.factor(df$PAY_AMT3)
-df$PAY_AMT4 <- as.factor(df$PAY_AMT4)
-df$PAY_AMT5 <- as.factor(df$PAY_AMT5)
-df$PAY_AMT6 <- as.factor(df$PAY_AMT6)
+# df$PAY_AMT1 <- as.factor(df$PAY_AMT1)
+# df$PAY_AMT2 <- as.factor(df$PAY_AMT2)
+# df$PAY_AMT3 <- as.factor(df$PAY_AMT3)
+# df$PAY_AMT4 <- as.factor(df$PAY_AMT4)
+# df$PAY_AMT5 <- as.factor(df$PAY_AMT5)
+# df$PAY_AMT6 <- as.factor(df$PAY_AMT6)
 
+# Convert categorical variables to factors #Dinh rewrote this to make it shorter
+
+names <- names(df)
+#finding column numbers for PAY_AMT1. PAY_ATM6
+n1<- which(names=="PAY_AMT1")
+n2<- which(names=="PAY_AMT6")
+
+#change "SEX",  "EDUCATION" , "MARRIAGE"  into factor
+df[, c(2:4)] <- lapply(df[, c(2:4)], factor)
+#change columns from 18 to 24 (PAY_AMTX and default) into factor
+df[, c(n1:n2+1)] <- lapply(df[, c(n1:n2+1)], factor)
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -215,7 +255,7 @@ df$PAY_AMT6 <- as.factor(df$PAY_AMT6)
 # Partitioning ####
 
 # Split data into testing and training with 80% for training on stratified method
-#Dinh: REWORTE THE CODE ABOVE TO SPLIT INTO TRAINSET AND TESTSET USING CARET PACKAGE
+#Dinh: REWROTE THE CODE ABOVE TO SPLIT INTO TRAINSET AND TESTSET USING CARET PACKAGE
 set.seed(20220504)
 intrain  <- createDataPartition(y=df$default,p=0.8,list=FALSE)
 trainset <- df[intrain,]
@@ -277,17 +317,82 @@ testDinh<-testset
 levels(trainDinh$default) <- c("no", "yes")
 levels(testDinh$default) <- c("no", "yes")
 
-## Change variables PAY_ATMX into factors
-trainDinh[, c(18:23)] <- lapply(trainDinh[, c(18:23)], factor)
-testDinh[, c(18:23)] <- lapply(testDinh[, c(18:23)], factor)
+## Change variables SEX< EDUCATION, MARRIAGE back to integers
+ trainDinh$SEX <- as.integer(trainDinh$SEX)
+ trainDinh$EDUCATION <- as.integer(trainDinh$EDUCATION)
+ trainDinh$MARRIAGE <- as.integer(trainDinh$MARRIAGE)
+ 
+ ## Change variables SEX< EDUCATION, MARRIAGE back to integers
+ testDinh$SEX <- as.integer(testDinh$SEX)
+ testDinh$EDUCATION <- as.integer(testDinh$EDUCATION)
+ testDinh$MARRIAGE <- as.integer(testDinh$MARRIAGE)
+ 
+ #simple random forest
+ rftrain <- randomForest(default~., data = trainDinh,  ntree=200)
+rftrain
 
-trainDinh$SEX <- as.integer(trainDinh$SEX)
-testDinh$SEX <- as.integer(testDinh$SEX)
+rftrain_pred <-predict(rftrain, testDinh)
+ confusionMatrix(rftrain_pred, testDinh$default, positive = 'yes')
+ 
+ rftrain_prob <- predict(rftrain,  type = "prob", newdata=testDinh)[,2]
+ rftrain_auc <-performance(prediction(rftrain_prob, testDinh$default),"auc")
+ rftrain_auc<-unlist(slot(rftrain_auc, "y.values"))
+ rftrain_auc
+#auc for this model is 0.785
 
-
-
-#grid search 
+ 
+ #grid search 
 set.seed(42)
+
+#using the suggested mtry=floor(sqrt(ncol(df))) for classification, changing number of trees
+tunegrid <- expand.grid(.mtry = c(sqrt(ncol(trainDinh))))
+
+
+rf_list <- list()
+
+for (ntree in c(200,300)){
+  set.seed(42)
+  rf_fit <- train(default~.,
+               data = trainDinh,
+               method = 'rf',
+               metric = 'ROC',
+               tuneGrid = tunegrid,
+               trControl = fitControl,
+               ntree = ntree)
+  key <- toString(ntree)
+  rf_list[[key]] <- rf_fit
+}
+
+results1 <- resamples(rf_list)
+summary(results1)
+
+dotplot(results1)
+
+rf_list[["200"]]
+rf_list[["300"]]
+
+
+#checking performance on the test set
+rf_200_prob <- predict(rf_list[["200"]], testDinh, type = "prob")$"yes"
+rf_200_auc <-performance(prediction(rf_200_prob, testDinh$default),"auc")
+rf_200_auc<-unlist(slot(rf_200_auc, "y.values"))
+rf_200_auc
+#rf_list[['200']] gives 0.786 auc on the test set
+
+rf_300_prob <- predict(rf_list[["300"]], testDinh, type = "prob")$"yes"
+rf_300_auc <-performance(prediction(rf_300_prob, testDinh$default),"auc")
+rf_300_auc<-unlist(slot(rf_300_auc, "y.values"))
+rf_300_auc
+#rf_list[['300']] gives 0.78828 auc on the test set
+
+
+
+
+
+
+
+
+#default grid search
 forest1 <- train(default~., data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
 print(forest1)
 #ROC was used to select the optimal model using the largest value.
@@ -300,7 +405,7 @@ plot(forest1)
 
 #confusion matrix for test set
 rf1_test<- predict(forest1, testDinh, type="raw")
-
+cfm_rf1<-confusionMatrix(rf1_test, testDinh$default, positive = "yes")
 
 cfm_temp <- confusionMatrix(rf1_test, testDinh$default, positive = "yes")
 
@@ -315,29 +420,19 @@ names(d) <- names(cfm)
 
 cfm <- rbind(cfm, d)
 
-
 rf1_prob <- predict(forest1, testDinh, type = "prob")$"yes"
 rf1_auc <-performance(prediction(rf1_prob, testDinh$default),"auc")
 rf1_auc<-unlist(slot(rf1_auc, "y.values"))
 rf1_auc
 
-#### model 1 on the test set  an auc =0.7936243 
-
-##plot ROC curve
 perf_rf1 <- prediction(rf1_prob, testDinh$default) %>% performance(measure = "tpr", x.measure = "fpr")
-plot(perf_rf1, col = "blue", lty = 2, main=" Random forest with grid search")
+plot(perf_rf1, col = "blue", lty = 2, main=" Random forest with default grid search")
 abline(a=0,b=1)
 
-plot(varImp(forest1), main="Important features plot") 
+plot(varImp(forest1), main="Important features plot for random forest with default grid search") 
 
-# roc_forest <- roc(testset$default,test_pred1[[2]], plot=TRUE)
-# plot(roc_forest, col="red", main="Forest ROC Curve")
-# 
-# a <- c("forest", auc_temp = auc(roc_forest))
-# a <- as.list(a)
-# names(a) <- names(auc)
-# 
-# auc <- rbind(auc, a)
+#### forest1  on the test set  an auc =0.7863344
+
 
 
 #### Drop some unimportant variables
@@ -355,69 +450,86 @@ rf2_auc <-performance(prediction(rf2_prob, testDinh$default),"auc")
 rf2_auc<-unlist(slot(rf2_auc, "y.values"))
 rf2_auc
 
-
-
-#### model 2 has an auc =0.7914978
+#### forest2  has an auc = 0.7856454
 
 perf_rf2 <- prediction(rf2_prob, testDinh$default) %>% performance(measure = "tpr", x.measure = "fpr")
-plot(perf_rf2, col = "blue", lty = 2, main=" Random forest grid search and without PAY_AMTX")
+plot(perf_rf2, col = "blue", lty = 2, main=" Random forest default grid search and without PAY_AMTX")
 abline(a=0,b=1)
 
 
-
-#Tunning mtry, ntrees=200
-tunegrid <- expand.grid(.mtry=c(6:14))
+tunegrid <- expand.grid(.mtry=c(8:10))
 set.seed(42)
-forest5 <- train(default~., data=trainDinh, method="rf",  tuneGrid=tunegrid, trControl=fitControl, ntree=200,Importance=TRUE,metric="ROC")
+forest3 <- train(default~., data=trainDinh, method="rf",  tuneGrid=tunegrid, trControl=fitControl, ntree=300,nodesize=5, Importance=TRUE,metric="ROC")
 
-print(forest5)
-plot(forest5)
+print(forest3)
+plot(forest3)
 
 #confusion matrix for test set
-rf_test5<- predict(forest5, testDinh, type="raw")
-confusionMatrix(rf_test5, testDinh$default, positive = "yes")
+rf_test3<- predict(forest3, testDinh, type="raw")
+confusionMatrix(rf_test3, testDinh$default, positive = "yes")
 
 
-rf5_prob <- predict(forest5, testDinh, type = "prob")$"yes"
-rf5_auc <-performance(prediction(rf5_prob, testDinh$default),"auc")
-rf5_auc<-unlist(slot(rf5_auc, "y.values"))
-rf5_auc
+rf3_prob <- predict(forest3, testDinh, type = "prob")$"yes"
+rf3_auc <-performance(prediction(rf3_prob, testDinh$default),"auc")
+rf3_auc<-unlist(slot(rf3_auc, "y.values"))
+rf3_auc
 
-perf_rf5 <- prediction(rf5_prob, testDinh$default) %>% performance(measure = "tpr", x.measure = "fpr")
-plot(perf_rf5, col = "blue", lty = 2, main=" Random forest with mtry=c(6:14), ntrees=200")
+#forest3: auc  [1] 0.7880319
+
+perf_rf3 <- prediction(rf3_prob, testDinh$default) %>% performance(measure = "tpr", x.measure = "fpr")
+plot(perf_rf3, col = "blue", lty = 2, main=" Random forest with mtry=c(8:10), ntrees=300, nodesize=10")
 abline(a=0,b=1)
 
-#forest5 gives auc 0.791 (  0.7914978 to be more exact)
+
 
 #---------------------------------#
+# try to change the nodesize and tune for mtry from floor(sqrt(p)) to ceil(p/3)+1 where p is the number of features, 
+#setting the number of trees to be 300 for running time
 
-#tunning mtry, ntrees=300
-tunegrid <- expand.grid(.mtry=c(6:13))
-set.seed(42)
-forest6 <- train(default~., data=trainDinh, method="rf",  tuneGrid=tunegrid, trControl=fitControl, ntree=300,Importance=TRUE,metric="ROC")
+tunegrid <- expand.grid(.mtry = c(4:9))
 
-print(forest6)
-plot(forest6)
+rf_node2 <- list()
 
-#confusion matrix for test set
-rf_test6<- predict(forest6, testDinh, type="raw")
-confusionMatrix(rf_test6, testDinh$default, positive = "yes")
+for (nodesize in c(1,5,10)){
+  set.seed(42)
+  rf_tune2 <- train(default~.,
+                   data = trainDinh,
+                   method = 'rf',
+                   metric = 'ROC',
+                   tuneGrid = tunegrid,
+                   trControl = fitControl,
+                   ntree = 300,
+                   nodesize=nodesize)
+  key <- toString(nodesize)
+  rf_node2[[key]] <- rf_tune2
+}
 
+results22 <- resamples(rf_node2)
+summary(results22)
 
-rf6_prob <- predict(forest6, testDinh, type = "prob")$"yes"
-rf6_auc <-performance(prediction(rf6_prob, testDinh$default),"auc")
-rf6_auc<-unlist(slot(rf6_auc, "y.values"))
-rf6_auc
+dotplot(results22)
 
-perf_rf6 <- prediction(rf6_prob, testDinh$default) %>% performance(measure = "tpr", x.measure = "fpr")
-plot(perf_rf6, col = "blue", lty = 2, main=" Random forest with mtry=c(6:13), ntrees=300")
-abline(a=0,b=1)
+rf_node2[['1']]
+rf_node2[['5']]
+rf_node2[['10']]
 
-#forest6 gives auc 0.7942973 
+rfnode2_1_prob <- predict(rf_node2[["1"]], testDinh, type = "prob")$"yes"
+rfnode2_1_auc <-performance(prediction(rfnode2_1_prob, testDinh$default),"auc")
+rfnode2_1_auc<-unlist(slot(rfnode2_1_auc, "y.values"))
+rfnode2_1_auc
+#rf_node[['1']] gives   0.7866337 auc on the test set
 
-#forest 6 performs the best on the test set 
+rfnode2_5_prob <- predict(rf_node2[["5"]], testDinh, type = "prob")$"yes"
+rfnode2_5_auc <-performance(prediction(rfnode2_5_prob, testDinh$default),"auc")
+rfnode2_5_auc<-unlist(slot(rfnode2_5_auc, "y.values"))
+rfnode2_5_auc
+#rf_node[['5']] gives   0.788137 auc on the test set
 
-roc_rf <- roc(testDinh$default,rf6_prob, plot=TRUE)
+rfnode2_10_prob <- predict(rf_node2[["10"]], testDinh, type = "prob")$"yes"
+rfnode2_10_auc <-performance(prediction(rfnode2_10_prob, testDinh$default),"auc")
+rfnode2_10_auc<-unlist(slot(rfnode2_10_auc, "y.values"))
+rfnode2_10_auc
+#rf_node[['5']] gives   0.7873903 auc on the test set
 
 
 
@@ -619,7 +731,7 @@ roc_gbm <- roc(testset$default,gbm_prob, plot=TRUE)
 cfm
 
 ## ROC and AUC of each model
-plot(roc_rf, col="red", main="Model ROC Curves")
+plot(perf_rf3, col="red", main="Model ROC Curves")
 plot(roc_svm, col="blue", add=TRUE)
 plot(roc_glm, col="green", add=TRUE)
 plot(roc_gbm, col="purple", add=TRUE)
@@ -727,7 +839,7 @@ gbm_grid4 =  expand.grid(
   n.minobsinnode = c(15)
 )
 set.seed(42)
-gbm_4 = train( x = trainDinh[, -c(24,25,26)],  y = trainDinh$default, 
+gbm_4 = train( x = trainDinh[, -c(24)],  y = trainDinh$default, 
                method = "gbm", 
                trControl = fitControl, verbose = FALSE,
                tuneGrid= gbm_grid4, metric="ROC")
@@ -747,7 +859,7 @@ gbm_grid3 =  expand.grid(
 )
 
 set.seed(42)
-gbm_3 = train( x = trainDinh[, -c(24,25,26)],  y = trainDinh$default, 
+gbm_3 = train( x = trainDinh[, -c(24)],  y = trainDinh$default, 
                method = "gbm", 
                trControl = fitControl, verbose = FALSE,
                tuneGrid= gbm_grid3, metric="ROC")
@@ -778,7 +890,7 @@ gbm_grid2 =  expand.grid(
   n.minobsinnode = c(15)
 )
 set.seed(42)
-gbm_2 = train( x = trainDinh[, -c(24,25,26)],  y = trainDinh$default, 
+gbm_2 = train( x = trainDinh[, -c(24)],  y = trainDinh$default, 
                method = "gbm", 
                trControl = fitControl, verbose = FALSE,
                tuneGrid= gbm_grid2, metric="ROC")
