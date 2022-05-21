@@ -684,6 +684,20 @@ gbmFit1 <- train(default ~ ., data = trainset,
                  metric = "ROC",
                  tuneGrid = gbmGrid_v2)
 gbmFit1
+#Let's get our predictions, confusion matrix and auc
+testset$predictions = predict(gbmFit1, newdata = testset)
+
+testset$probability <- predict(gbmFit1, newdata = testset, type = "prob")
+
+confusionMatrix(data = testset$predictions, reference = testset$default,
+                mode = "everything", positive="yes")
+
+pred_gbm1 = prediction(testset$probability[,2], testset$default)
+
+#Let us look at the AUC
+auc_gbm1 = performance(pred_gbm1, "auc")@y.values[[1]]
+auc_gbm1
+
 
 # fit using downsample
 gbmFit2 <- train(default ~ ., data = training_dn, 
@@ -693,6 +707,20 @@ gbmFit2 <- train(default ~ ., data = training_dn,
                  metric = "ROC",
                  tuneGrid = gbmGrid_v2)
 gbmFit2
+#Let's get our predictions, confusion matrix and auc
+testset$predictions = predict(gbmFit2, newdata = testset)
+
+testset$probability <- predict(gbmFit2, newdata = testset, type = "prob")
+
+pred_gbm2 = prediction(testset$probability[,2], testset$default)
+
+#Let us look at the AUC
+auc_gbm2 = performance(pred_gbm2, "auc")@y.values[[1]]
+auc_gbm2
+
+gbm_prob_dn <- predict(gbmFit2, testset, type = "prob")$"yes"
+roc_gbm_dn <- roc(testset$default,gbm_prob_dn, plot=TRUE)
+
 
 # fit using upsample
 gbmFit3 <- train(default ~ ., data = training_up, 
@@ -705,22 +733,42 @@ gbmFit3
 
 
 varImp(gbmFit3)
+plot(varImp(gbmFit3), main="Variable importance - base GBM") 
 
 #Let's get our predictions, confusion matrix and auc
 testset$predictions = predict(gbmFit3, newdata = testset)
 
 testset$probability <- predict(gbmFit3, newdata = testset, type = "prob")
 
-pred = prediction(testset$probability[,2], testset$default)
+pred_3 = prediction(testset$probability[,2], testset$default)
 
 #Let us look at the AUC
-auc_gbm = performance(pred, "auc")@y.values[[1]]
+auc_gbm3 = performance(pred_3, "auc")@y.values[[1]]
+auc_gbm3
+
+gbm_prob_up <- predict(gbmFit3, testset, type = "prob")$"yes"
+roc_gbm_up <- roc(testset$default,gbm_prob_up, plot=TRUE)
+
+testset$predictions = predict(gbmFit1, newdata = testset)
+
+testset$probability <- predict(gbmFit1, newdata = testset, type = "prob")
+
+pred_gbm1 = prediction(testset$probability[,2], testset$default)
+
+#Let us look at the AUC
+auc_gbm = performance(pred_gbm1, "auc")@y.values[[1]]
 auc_gbm
 
-
-gbm_prob <- predict(gbmFit3, testset, type = "prob")$"yes"
+gbm_prob <- predict(gbmFit1, testset, type = "prob")$"yes"
 
 roc_gbm <- roc(testset$default,gbm_prob, plot=TRUE)
+
+plot(roc_gbm, col="red", main="Base GBMs ROC Curves")
+plot(roc_gbm_dn, col="orange", add=TRUE)
+plot(roc_gbm_up, col="purple", add=TRUE)
+legend("right", legend = c("unbalanced", "down-sampling", "up-sampling"), col = c("red", "orange","purple"), lty=1:1, box.lty=0)
+
+
 #_________________________________________________________________________#
 #_________________________________________________________________________#
 #_________________________________________________________________________#
