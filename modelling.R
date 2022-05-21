@@ -229,12 +229,12 @@ df$default  <- as.factor(df$default)
 #df$SEX <- as.factor(df$SEX)
 #df$EDUCATION <- as.factor(df$EDUCATION)
 #df$MARRIAGE <- as.factor(df$MARRIAGE)
-# df$PAY_AMT1 <- as.factor(df$PAY_AMT1)
-# df$PAY_AMT2 <- as.factor(df$PAY_AMT2)
-# df$PAY_AMT3 <- as.factor(df$PAY_AMT3)
-# df$PAY_AMT4 <- as.factor(df$PAY_AMT4)
-# df$PAY_AMT5 <- as.factor(df$PAY_AMT5)
-# df$PAY_AMT6 <- as.factor(df$PAY_AMT6)
+df$PAY_AMT1 <- as.factor(df$PAY_AMT1)
+df$PAY_AMT2 <- as.factor(df$PAY_AMT2)
+df$PAY_AMT3 <- as.factor(df$PAY_AMT3)
+df$PAY_AMT4 <- as.factor(df$PAY_AMT4)
+df$PAY_AMT5 <- as.factor(df$PAY_AMT5)
+df$PAY_AMT6 <- as.factor(df$PAY_AMT6)
 
 # Convert categorical variables to factors #Dinh rewrote this to make it shorter
 
@@ -829,7 +829,6 @@ auc#}}}}} AUC 0.7502347
 #### Dinh tried gbm 
 #tunning ntrees, interaction.depth
 
-
 ###gbm4
 
 gbm_grid4 =  expand.grid(
@@ -920,6 +919,45 @@ gbm_auc2
 #gbm2 gives 0.79088, gbm3 gives 0.79044, gmb4 gives 0.78...
 
 
+# upsampling
+set.seed(42)
+final_Control <- trainControl(method = 'cv', number = 10, 
+                              savePredictions = 'final', classProbs = TRUE, summaryFunction = twoClassSummary)
+# v8 is our current best
+gbm_grid_finalv8 =  expand.grid(
+  interaction.depth = c(5),
+  n.trees = c(350,450,550,650), 
+  shrinkage = c(0.05),
+  n.minobsinnode = c(10,15)
+)
+
+levels(df$default) <- c("no", "yes")
+
+set.seed(42)
+gbm_up = train( x = training_up[, -c(24)],  y = training_up$default, 
+                   method = "gbm", 
+                   trControl = final_Control, verbose = FALSE,
+                   tuneGrid= gbm_grid_finalv8, metric="ROC")
+
+gbm_up
+
+
+#confusion matrix
+p_gbm_up <-predict(gbm_up, df)
+cfm_gbm_up <- confusionMatrix(data=p_gbm_up, reference=as.factor(df$default), positive="yes")
+cfm_gbm_fnl
+
+#plot roc curve
+gbm_prob_up <- predict(gbm_up, df, type = "prob")$"yes"
+perf_gbm_up <- prediction(gbm_prob_fnl, df$default) %>% performance(measure = "tpr", x.measure = "fpr")
+plot(perf_gbm_up, col = "blue", lty = 2, main="ROC curveusing gbm2")
+abline(a=0,b=1)
+
+#AUC
+gbm_auc_up <-performance(prediction(gbm_prob_up, df$default),"auc")
+gbm_auc_up<-unlist(slot(gbm_auc_up, "y.values"))
+gbm_auc_up
+
 #_________________________________________________________________________#
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -933,14 +971,6 @@ final_Control <- trainControl(method = 'cv', number = 10,
 gbm_grid_finalv8 =  expand.grid(
   interaction.depth = c(5),
   n.trees = c(350,450,550,650), 
-  shrinkage = c(0.05),
-  n.minobsinnode = c(10,15)
-)
-
-# v6
-gbm_grid_finalv6 =  expand.grid(
-  interaction.depth = c(5),
-  n.trees = c(350,450,550), 
   shrinkage = c(0.05),
   n.minobsinnode = c(10,15)
 )
@@ -982,8 +1012,9 @@ gbm_auc_fnl
 ## ROC and AUC of each model
 plot(perf_gbm2, col="purple", main="Improving ROC Curves")
 plot(perf_gbm3, col="blue", add=TRUE)
+plot(perf_gbm_up, col="green", add=TRUE)
 plot(perf_gbm_fnl, col="red", add=TRUE)
-legend("right", legend = c("v2", "v3","final"), col = c("purple", "blue", "red"), lty=1:1, box.lty=0)
+legend("right", legend = c("v2", "v3","upsampling","final"), col = c("purple", "blue","green", "red"), lty=1:1, box.lty=0)
 
 
 gbm_auc3
@@ -998,6 +1029,7 @@ gbm_auc_fnl
 # Prep the validation set
 df_validation = read.csv("AT2_credit_test.csv")
 levels(df$default) <- c("no", "yes") # prep for caret
+levels(training_up$default) <- c("no", "yes") # prep for caret
 
 df_validation$EDUCATION[df_validation$EDUCATION == 0] <- 4 # reducing class
 df_validation$EDUCATION[df_validation$EDUCATION == 6] <- 5
@@ -1030,7 +1062,7 @@ df_validation$default <- target_prob # add probabilities as default
 output_export <- df_validation %>% dplyr::select(ID, default)
 
 # Export as csv
-write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output_2005_v8.csv", row.names = FALSE)
+write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output_2005_v9.csv", row.names = FALSE)
 
 
 ##
