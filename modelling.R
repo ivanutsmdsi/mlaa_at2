@@ -58,7 +58,12 @@ tb_default # 0:1 = 16974:6127
 tbl_prop <- prop.table(tb_default)
 tbl_prop # we have unbalanced data. approx 0:1 = 3:1
 
+# visualise
+p<-ggplot(data=df)+aes(x=default, fill=default)+geom_bar()
+p
+
 ## Independent variables ####
+
 # check other independent variables
 df %>% summarise_all(n_distinct) 
 # SEX has 6 unique values - should be only 2
@@ -90,10 +95,6 @@ p
 tb_marriage <- table(df$MARRIAGE) # check distribution
 tb_marriage # 0 <- 3
 
-# p<-ggplot(data=df, aes(x=MARRIAGE)) +
-#   geom_histogram()
-# p
-
 p<-ggplot(data=df)+ aes(x=as.factor(MARRIAGE), fill=as.factor(MARRIAGE)) +
      geom_bar() +labs( x="MARRIAGE",title="Marriage by categories", fill = "MARRIAGE" )
 p
@@ -120,13 +121,6 @@ tb_edu # 0 <- 4(others), 6(unknown) <- 5(unknown)
 p<-ggplot(data=df)+ aes(x=as.factor(EDUCATION), fill=as.factor(EDUCATION)) +
   geom_bar() +labs( x="EDUCATION",title="Education by categories", fill = "EDUCATION" )
 
-p
-
-
-#defaultgit staus
-
-
-p<-ggplot(data=df)+aes(x=default, fill=default)+geom_bar()
 p
 
 #_________________________________________________________________________#
@@ -294,7 +288,7 @@ testDinh$SEX <- as.integer(testDinh$SEX)
 
 #grid search 
 set.seed(42)
-forest1 <- train(default~.-AGE_BAND-NO_PAY_DELAY, data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
+forest1 <- train(default~., data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
 print(forest1)
 #ROC was used to select the optimal model using the largest value.
 #The final value used for the model was mtry = 12.
@@ -308,7 +302,7 @@ plot(forest1)
 rf1_test<- predict(forest1, testDinh, type="raw")
 
 
-cfm_temp <- confusionMatrix(rf11_test, testDinh$default, positive = "yes")
+cfm_temp <- confusionMatrix(rf1_test, testDinh$default, positive = "yes")
 
 d <- c("forest", 
        cfm_temp[["byClass"]][["Balanced Accuracy"]],
@@ -348,7 +342,7 @@ plot(varImp(forest1), main="Important features plot")
 
 #### Drop some unimportant variables
 set.seed(42)
-forest2 <- train(default~.-AGE_BAND-NO_PAY_DELAY-PAY_AMT1-PAY_AMT2-PAY_AMT3-PAY_AMT4-PAY_AMT5-PAY_AMT6, data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
+forest2 <- train(default~.-PAY_AMT1-PAY_AMT2-PAY_AMT3-PAY_AMT4-PAY_AMT5-PAY_AMT6, data=trainDinh, method="rf", trControl=fitControl, Importance=TRUE, metric="ROC")
 print(forest2)
 plot(forest2)
 
@@ -356,10 +350,12 @@ plot(forest2)
 rf_test2<- predict(forest2, testDinh, type="raw")
 confusionMatrix(rf_test2, testDinh$default, positive = "yes")
 
-rf2_prob <- predict(forest5, testDinh, type = "prob")$"yes"
+rf2_prob <- predict(forest2, testDinh, type = "prob")$"yes"
 rf2_auc <-performance(prediction(rf2_prob, testDinh$default),"auc")
 rf2_auc<-unlist(slot(rf2_auc, "y.values"))
 rf2_auc
+
+
 
 #### model 2 has an auc =0.7914978
 
@@ -372,7 +368,7 @@ abline(a=0,b=1)
 #Tunning mtry, ntrees=200
 tunegrid <- expand.grid(.mtry=c(6:14))
 set.seed(42)
-forest5 <- train(default~.-AGE_BAND-NO_PAY_DELAY, data=trainDinh, method="rf",  tuneGrid=tunegrid, trControl=fitControl, ntree=200,Importance=TRUE,metric="ROC")
+forest5 <- train(default~., data=trainDinh, method="rf",  tuneGrid=tunegrid, trControl=fitControl, ntree=200,Importance=TRUE,metric="ROC")
 
 print(forest5)
 plot(forest5)
@@ -398,7 +394,7 @@ abline(a=0,b=1)
 #tunning mtry, ntrees=300
 tunegrid <- expand.grid(.mtry=c(6:13))
 set.seed(42)
-forest6 <- train(default~.-AGE_BAND-NO_PAY_DELAY, data=trainDinh, method="rf",  tuneGrid=tunegrid, trControl=fitControl, ntree=300,Importance=TRUE,metric="ROC")
+forest6 <- train(default~., data=trainDinh, method="rf",  tuneGrid=tunegrid, trControl=fitControl, ntree=300,Importance=TRUE,metric="ROC")
 
 print(forest6)
 plot(forest6)
@@ -421,7 +417,7 @@ abline(a=0,b=1)
 
 #forest 6 performs the best on the test set 
 
-
+roc_rf <- roc(testDinh$default,rf6_prob, plot=TRUE)
 
 
 
@@ -460,14 +456,10 @@ names(d) <- names(cfm)
 
 cfm <- rbind(cfm, d)
 
-
-
-
 ##AUC/ROC
+
 roc_svm <- roc(testset$default,svm_probabilties, plot=TRUE)
 plot(roc_svm, col="red", main="SVM ROC Curve")
-
-
 
 a <- c("svm", auc_temp = auc(roc_svm))
 a <- as.list(a)
@@ -475,10 +467,13 @@ names(a) <- names(auc)
 
 auc <- rbind(auc, a)
 
+
 #remove model variables
 rm(d, cfm_temp)
 rm(svm_probabilties, predict_probability, pred_test, pred_train, svm_model)
 
+auc_svm <- auc(roc_svm)
+auc_svm
 #_________________________________________________________________________#
 #_________________________________________________________________________#
 
@@ -530,11 +525,9 @@ cfm <- rbind(cfm, d)
 #AUC 
 
 roc_glm <- roc(testset$default,testset$probability)
-auc(roc_glm)
-
+auc_glm <- auc(roc_glm)
+auc_glm
 plot(roc_glm, col="red", main="GLM ROC Curve")
-
-
 
 a <- c("glm", auc_temp = auc(roc_glm))
 a <- as.list(a)
@@ -604,18 +597,18 @@ varImp(gbmFit3)
 #Let's get our predictions, confusion matrix and auc
 testset$predictions = predict(gbmFit3, newdata = testset)
 
-#Let us check the confusion matrix
-cfm_temp <- confusionMatrix(data = testset$predictions, reference = testset$default,
-                mode = "everything", positive="yes")
-
 testset$probability <- predict(gbmFit3, newdata = testset, type = "prob")
 
 pred = prediction(testset$probability[,2], testset$default)
 
 #Let us look at the AUC
-auc = performance(pred, "auc")@y.values[[1]]
-auc
+auc_gbm = performance(pred, "auc")@y.values[[1]]
+auc_gbm
 
+
+gbm_prob <- predict(gbmFit3, testset, type = "prob")$"yes"
+
+roc_gbm <- roc(testset$default,gbm_prob, plot=TRUE)
 #_________________________________________________________________________#
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -626,12 +619,16 @@ auc
 cfm
 
 ## ROC and AUC of each model
-plot(perf_rf6, col="red", main="Model ROC Curves")
+plot(roc_rf, col="red", main="Model ROC Curves")
 plot(roc_svm, col="blue", add=TRUE)
 plot(roc_glm, col="green", add=TRUE)
-legend("right", legend = c("forest", "svm", "glm"), col = c("red", "blue", "green"), lty=1:1, box.lty=0)
+plot(roc_gbm, col="purple", add=TRUE)
+legend("right", legend = c("forest", "svm", "glm", "gbm"), col = c("red", "blue", "green","purple"), lty=1:1, box.lty=0)
 
-auc
+rf6_auc
+auc_svm
+auc_glm
+auc_gbm
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -680,7 +677,7 @@ gbm_fit_rand_JR10 = train(x = trainset_JR[, -length(trainset_JR)],
 
 print(gbm_fit_rand_JR10)
 
-#both random serarch gives model with best ROC = n tree=50, depth=1, shrinkage=0.1, nminobsinnode=10
+#both random search gives model with best ROC = n tree=50, depth=1, shrinkage=0.1, nminobsinnode=10
 
 #get  ROC for gbm_fit_rand_JR10 
 gbm_fit_rand_grid <-  expand.grid(interaction.depth = 1, 
@@ -724,15 +721,15 @@ auc#}}}}} AUC 0.7502347
 ###gbm4
 
 gbm_grid4 =  expand.grid(
-  interaction.depth = c(3,4,5),
-  n.trees = c(200,300,400,500), 
-  shrinkage = c(0.1,0.05),
-  n.minobsinnode = c(5,10,15)
+  interaction.depth = c(5),
+  n.trees = c(200), 
+  shrinkage = c(0.1),
+  n.minobsinnode = c(15)
 )
 set.seed(42)
 gbm_4 = train( x = trainDinh[, -c(24,25,26)],  y = trainDinh$default, 
                method = "gbm", 
-               trControl = control, verbose = FALSE,
+               trControl = fitControl, verbose = FALSE,
                tuneGrid= gbm_grid4, metric="ROC")
 
 gbm_4
@@ -742,18 +739,17 @@ gbm_4
 #The final values used for the model were n.trees = 200, interaction.depth = 5, shrinkage = 0.1
 #and n.minobsinnode = 15.
 
-
-
 gbm_grid3 =  expand.grid(
-  interaction.depth = c(3,4,5),
-  n.trees = c(200,300,400,500), 
-  shrinkage = c(0.1,0.05, 0.01),
+  interaction.depth = c(5),
+  n.trees = c(500), 
+  shrinkage = c(0.05),
   n.minobsinnode = c(5,10)
 )
+
 set.seed(42)
 gbm_3 = train( x = trainDinh[, -c(24,25,26)],  y = trainDinh$default, 
                method = "gbm", 
-               trControl = control, verbose = FALSE,
+               trControl = fitControl, verbose = FALSE,
                tuneGrid= gbm_grid3, metric="ROC")
 
 gbm_3
@@ -771,23 +767,20 @@ perf_gbm3 <- prediction(gbm_prob3, testDinh$default) %>% performance(measure = "
 plot(perf_gbm3, col = "blue", lty = 2, main="ROC curveusing gbm2")
 abline(a=0,b=1)
 
-
 gbm_auc3 <-performance(prediction(gbm_prob3, testDinh$default),"auc")
 gbm_auc3<-unlist(slot(gbm_auc3, "y.values"))
 gbm_auc3
 
-
-
 gbm_grid2 =  expand.grid(
-  interaction.depth = c(3,4,5),
-  n.trees = c(200,300,400,500), 
-  shrinkage = c(0.1,0.05, 0.01),
-  n.minobsinnode = c(5,10,15)
+  interaction.depth = c(5),
+  n.trees = c(300), 
+  shrinkage = c(0.05),
+  n.minobsinnode = c(15)
 )
 set.seed(42)
 gbm_2 = train( x = trainDinh[, -c(24,25,26)],  y = trainDinh$default, 
                method = "gbm", 
-               trControl = control, verbose = FALSE,
+               trControl = fitControl, verbose = FALSE,
                tuneGrid= gbm_grid2, metric="ROC")
 
 gbm_2
@@ -812,12 +805,6 @@ gbm_auc2 <-performance(prediction(gbm_prob2, testDinh$default),"auc")
 gbm_auc2<-unlist(slot(gbm_auc2, "y.values"))
 gbm_auc2
 
-
-
-
-
-
-
 #gbm2 gives 0.79088, gbm3 gives 0.79044, gmb4 gives 0.78...
 
 
@@ -825,36 +812,20 @@ gbm_auc2
 #_________________________________________________________________________#
 #_________________________________________________________________________#
 
-# Optimisation Summary ####
-
-pred <- prediction(testset$predictions, testset$labels )
-pred2 <- prediction(abs(testset$predictions + 
-                          rnorm(length(testset$predictions), 0, 0.1)), 
-                    testset$labels)
-perf <- performance( pred, "tpr", "fpr" )
-perf2 <- performance(pred2, "tpr", "fpr")
-plot(perf, colorize = TRUE)
-plot(perf2, add = TRUE, colorize = TRUE)
-
-
-## AUC of each version of GBM models
-# add a table
-# add ROCs for key GBM models showing improvements after tuning
-
-#_________________________________________________________________________#
-#_________________________________________________________________________#
-#_________________________________________________________________________#
-
 # Final GBM Model ####
 
-# gbm model
-
-#gbm 2 gitROC was used to select the optimal model using the largest value.
-#The final values used for the model were n.trees = 300, interaction.depth = 5, shrinkage = 0.05
-#and n.minobsinnode = 15.
 set.seed(42)
 final_Control <- trainControl(method = 'cv', number = 10, 
                            savePredictions = 'final', classProbs = TRUE, summaryFunction = twoClassSummary)
+# v8 is our current best
+gbm_grid_finalv8 =  expand.grid(
+  interaction.depth = c(5),
+  n.trees = c(350,450,550,650), 
+  shrinkage = c(0.05),
+  n.minobsinnode = c(10,15)
+)
+
+# v6
 gbm_grid_finalv6 =  expand.grid(
   interaction.depth = c(5),
   n.trees = c(350,450,550), 
@@ -862,39 +833,50 @@ gbm_grid_finalv6 =  expand.grid(
   n.minobsinnode = c(10,15)
 )
 
-# v5 is our current best
-gbm_grid_finalv5 =  expand.grid(
-  interaction.depth = c(5),
-  n.trees = c(350,450), 
-  shrinkage = c(0.05),
-  n.minobsinnode = c(10,15)
-)
-
 levels(df$default) <- c("no", "yes")
 
+set.seed(42)
 gbm_final = train( x = df[, -c(24)],  y = df$default, 
                method = "gbm", 
                trControl = final_Control, verbose = FALSE,
-               tuneGrid= gbm_grid_final, metric="ROC")
+               tuneGrid= gbm_grid_finalv8, metric="ROC")
 
 gbm_final
 
 
 #confusion matrix
-p_gbm2 <-predict(gbm_final, df)
-cfm_gbm2 <- confusionMatrix(data=p_gbm2, reference=as.factor(df$default), positive="yes")
-cfm_gbm2
+p_gbm_fnl <-predict(gbm_final, df)
+cfm_gbm_fnl <- confusionMatrix(data=p_gbm_fnl, reference=as.factor(df$default), positive="yes")
+cfm_gbm_fnl
 
 #plot roc curve
-gbm_prob2 <- predict(gbm_final, df, type = "prob")$"yes"
-perf_gbm2 <- prediction(gbm_prob2, df$default) %>% performance(measure = "tpr", x.measure = "fpr")
-plot(perf_gbm2, col = "blue", lty = 2, main="ROC curveusing gbm2")
+gbm_prob_fnl <- predict(gbm_final, df, type = "prob")$"yes"
+perf_gbm_fnl <- prediction(gbm_prob_fnl, df$default) %>% performance(measure = "tpr", x.measure = "fpr")
+plot(perf_gbm_fnl, col = "blue", lty = 2, main="ROC curveusing gbm2")
 abline(a=0,b=1)
 
 #AUC
-gbm_auc2 <-performance(prediction(gbm_prob2, df$default),"auc")
-gbm_auc2<-unlist(slot(gbm_auc2, "y.values"))
+gbm_auc_fnl <-performance(prediction(gbm_prob_fnl, df$default),"auc")
+gbm_auc_fnl<-unlist(slot(gbm_auc_fnl, "y.values"))
+gbm_auc_fnl
+
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+#_________________________________________________________________________#
+
+# Optimisation Summary ####
+## AUC of each version of GBM models
+
+## ROC and AUC of each model
+plot(perf_gbm2, col="purple", main="Improving ROC Curves")
+plot(perf_gbm3, col="blue", add=TRUE)
+plot(perf_gbm_fnl, col="red", add=TRUE)
+legend("right", legend = c("v2", "v3","final"), col = c("purple", "blue", "red"), lty=1:1, box.lty=0)
+
+
+gbm_auc3
 gbm_auc2
+gbm_auc_fnl
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -936,7 +918,7 @@ df_validation$default <- target_prob # add probabilities as default
 output_export <- df_validation %>% dplyr::select(ID, default)
 
 # Export as csv
-write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output_2005_v5.csv", row.names = FALSE)
+write.csv(output_export,"~/GitHub/mlaa_at2/MLAA_AT2_output_2005_v8.csv", row.names = FALSE)
 
 
 ##
