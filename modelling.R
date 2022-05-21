@@ -538,14 +538,14 @@ rfnode2_10_auc
 
 ## SVM ####
 ## Model 2 Ivan
-svm_model<- 
-  svm(default ~ .
-      , data=trainset, type="C-classification", kernel="linear", scale = TRUE, probability=TRUE)
+svm_model<- svm(default ~ .,
+                data=trainset, type="C-classification",
+                kernel="linear", scale = TRUE, probability=TRUE)
 
 pred_train <- predict(svm_model,newdata = trainset)
 mean(pred_train==trainset$default)
 summary(pred_train)
-
+svm_model
 pred_test <- predict(svm_model,newdata = testset, na.action = na.pass)
 summary(pred_test)
 predict_probability <- predict(svm_model,newdata = testset, na.action = na.pass, probability=TRUE)
@@ -555,18 +555,13 @@ svm_probabilties <- attr(predict_probability, "probabilities")[,1]
 mean(pred_test==testset$default)
 
 
-cfm_temp <- confusionMatrix(pred_test, testset$default, "1")
+cfm_temp <- confusionMatrix(pred_test, testset$default, "yes")
 
 d <- c("svm", 
   cfm_temp[["byClass"]][["Balanced Accuracy"]],
   cfm_temp[["byClass"]][["Precision"]],
   cfm_temp[["byClass"]][["Recall"]],
   cfm_temp[["byClass"]][["F1"]])
-
-d <- as.list(d)
-names(d) <- names(cfm)
-
-cfm <- rbind(cfm, d)
 
 ##AUC/ROC
 
