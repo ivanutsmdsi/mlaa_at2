@@ -1045,6 +1045,9 @@ gbm_auc_fnl <-performance(prediction(gbm_prob_fnl, df$default),"auc")
 gbm_auc_fnl<-unlist(slot(gbm_auc_fnl, "y.values"))
 gbm_auc_fnl
 
+varImp(gbm_final)
+plot(varImp(gbm_final), main="Variable importance - Final GBM") 
+
 #_________________________________________________________________________#
 #_________________________________________________________________________#
 #_________________________________________________________________________#
