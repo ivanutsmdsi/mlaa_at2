@@ -48,9 +48,9 @@ sum(is.na(df)) # check missing value - null
 unique(df$default) # check target var
 df$default[df$default == "Y"] <- 1 # converting to match data dictionary
 df$default[df$default == "N"] <- 0 # converting to match data dictionary
-levels(df$default) <- c("no", "yes")
 df$default <- as.integer(df$default) # set as integer
 df$default <- as.factor(df$default) # set as factor
+levels(df$default) <- c("no", "yes")
 levels(df$default) # check factor, 1 = yes
 tb_default <- table(df$default) # check target distribution
 tb_default # 0:1 = 16974:6127
@@ -243,10 +243,10 @@ names <- names(df)
 n1<- which(names=="PAY_AMT1")
 n2<- which(names=="PAY_AMT6")
 
-#change "SEX",  "EDUCATION" , "MARRIAGE"  into factor
-df[, c(2:4)] <- lapply(df[, c(2:4)], factor)
-#change columns from 18 to 24 (PAY_AMTX and default) into factor
-df[, c(n1:n2+1)] <- lapply(df[, c(n1:n2+1)], factor)
+# change "SEX",  "EDUCATION" , "MARRIAGE"  into factor
+# df[, c(2:4)] <- lapply(df[, c(2:4)], factor)
+# change columns from 18 to 24 (PAY_AMTX and default) into factor
+#df[, c(n1:n2+1)] <- lapply(df[, c(n1:n2+1)], factor)
 
 #_________________________________________________________________________#
 #_________________________________________________________________________#
@@ -481,6 +481,9 @@ plot(perf_rf3, col = "blue", lty = 2, main=" Random forest with mtry=c(8:10), nt
 abline(a=0,b=1)
 
 
+roc_rf <- roc(testDinh$default,rf3_prob, plot=TRUE)
+auc_rf <- auc(roc_rf)
+auc_rf
 
 #---------------------------------#
 # try to change the nodesize and tune for mtry from floor(sqrt(p)) to ceil(p/3)+1 where p is the number of features, 
@@ -774,13 +777,13 @@ legend("right", legend = c("unbalanced", "down-sampling", "up-sampling"), col = 
 cfm
 
 ## ROC and AUC of each model
-plot(perf_rf3, col="red", main="Model ROC Curves")
+plot(roc_gbm, col="red", main="Model ROC Curves")
+plot(roc_rf, col="green", add=TRUE)
+plot(roc_glm, col="purple", add=TRUE)
 plot(roc_svm, col="blue", add=TRUE)
-plot(roc_glm, col="green", add=TRUE)
-plot(roc_gbm, col="purple", add=TRUE)
-legend("right", legend = c("forest", "svm", "glm", "gbm"), col = c("red", "blue", "green","purple"), lty=1:1, box.lty=0)
+legend("right", legend = c("GBM - (0.7998)","RF ---- (0.7880)", "GLM - (0.7025)","SVM - (0.6749)"), col = c("red", "green", "purple","blue"), lty=1:1, box.lty=0)
 
-rf6_auc
+auc_rf
 auc_svm
 auc_glm
 auc_gbm
